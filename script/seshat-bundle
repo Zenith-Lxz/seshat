@@ -2,6 +2,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+python3 - <<'PYTHON'
+from pathlib import Path
+import subprocess
+
+output = str(Path.cwd() / "target/seshat-bundle") + "/"
+commands = subprocess.check_output(["ps", "-axo", "comm="], text=True).splitlines()
+if any(command.startswith(output) and command.endswith("/Contents/MacOS/seshat") for command in commands):
+    raise SystemExit("Quit the local Seshat app before rebuilding its bundle.")
+PYTHON
+
 # A local build must not enter upstream signing, installation or update workflows.
 cargo build --locked --profile release-fast -p zed
 python3 - <<'PYTHON'
@@ -59,8 +69,12 @@ with tempfile.TemporaryDirectory(prefix=".seshat-", dir=output) as staging:
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
     destination = output / "Seshat.app"
     if destination.exists():
-        previous = output / ("Seshat-previous-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".app")
-        destination.rename(previous)
+        previous = output / ("Seshat-previous-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".zip")
+        subprocess.run(["ditto", "-c", "-k", "--keepParent", str(destination), str(previous)], check=True)
+        commands = subprocess.check_output(["ps", "-axo", "comm="], text=True).splitlines()
+        if any(command.startswith(str(output) + "/") and command.endswith("/Contents/MacOS/seshat") for command in commands):
+            raise SystemExit("Seshat started during the build; quit it before replacing its bundle.")
+        shutil.rmtree(destination)
     app.rename(destination)
     receipt = {
         "built_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),

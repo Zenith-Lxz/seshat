@@ -17,4 +17,6 @@ Use the toolchain pinned by `rust-toolchain.toml` through mise. Cargo.lock is au
 
 The local wrapper does not install Cargo plugins, alter keychains, install into Applications, upload artifacts or bundle Git. Git features use Git already present on the host. A clean source-built app must be verified with native keyboard interaction, disk readback and a quit/relaunch session check. CLI tests and code signing are separate evidence.
 
+The wrapper refuses to replace a running local application. Prior generated bundles are kept as ZIP backups, so duplicate application identities do not interfere with native app discovery.
+
 This foundation does not accept full WYSIWYG Markdown, specialized huge-log handling, a completely stripped dependency graph, notarization, Intel execution or cross-platform packages. Those need their own implementation and acceptance.
