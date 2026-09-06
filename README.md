@@ -1,3 +1,14 @@
+> [!IMPORTANT]
+> Remove this line to confirm you've reviewed this PR before submitting.
+
+# Seshat
+
+A daily file editor built on Zed. The fork starts from upstream `v1.18.1` (`bebe92f469834a287f5a57ed78e8d51a918b8ada`). It keeps the mature editing core and adds a focused local-file, Markdown and read-only log workflow.
+
+Upstream source is retained below. Fork contracts and current work are indexed in [the project knowledge map](.lattice/knowledge.md). The original Swift application remains in the separate `seshat-reader` repository.
+
+---
+
 # Zed
 
 [![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)

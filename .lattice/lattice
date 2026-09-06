@@ -1,0 +1,2057 @@
+#!/usr/bin/env python3
+"""Lattice — minimal dev-workflow layer for AI coding agents.
+
+Vendored into a repo at .lattice/lattice by `init`. Stdlib only, Python 3.9+.
+Commands: init [--from-openspec] | context | find QUERY | doctor
+          hooks {install,context,status}
+          task {new,claim,release,done,list,archive}
+"""
+
+import argparse
+from contextlib import contextmanager
+import datetime
+import getpass
+import hashlib
+import json
+import os
+import re
+import shlex
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+VERSION = "0.11"
+STALE_CLAIM_DAYS = 7
+CONTEXT_STATUS_LINES = 40
+CONTEXT_CHARS = 8000
+HOOK_GIT = None
+
+PROTOCOL_START = "<!-- lattice:protocol:start -->"
+PROTOCOL_END = "<!-- lattice:protocol:end -->"
+
+PROTOCOL_SECTION = f"""{PROTOCOL_START}
+## Lattice Protocol (for all agents)
+
+- Session start: `lattice context` is injected by Claude Code and Codex hooks.
+  `init` preserves this machine's selected hook mode (project by default;
+  `init --hooks user` enrolls in an explicitly installed shared entrypoint).
+  Native hook trust still applies. If no bundle appears, run
+  `python3 .lattice/lattice context`. It prioritizes the current task; AGENTS.md
+  is loaded natively and is not repeated. Reconcile with actual git state.
+  Read `.lattice/knowledge.md` for the project's maintained sources. Before
+  declaring prior information missing, use `lattice find "<term>"` to search
+  docs, shared task notes, and archives; an archive is historical evidence.
+- Before material work: `task new` + `task claim`. State the goal, observable
+  acceptance, and a real verify command. Trivial edits and read-only work need no
+  task. Add a plan only when dependencies or uncertainty make one useful; no
+  mandatory phases or review committee. Split parallel work at stable interfaces.
+- One task = one branch = one verifiable commit series. Claim creates a branch
+  from main (or `git config lattice.main`) and switches the primary tree;
+  `--worktree` creates `.lattice/worktrees/<id>` for an independent session.
+  Never share a working tree between sessions. `--force` explicitly takes over
+  a claim; it cannot adopt a mismatched checkout. `task release` keeps the branch.
+- Active tasks, notes, and evidence live in the primary tree's ignored
+  `.lattice/runtime/tasks/`. All worktrees share this local board across branch
+  switches; it is not replicated by git. Read/edit the task path printed by the
+  CLI. `spec/` and `intent/` remain versioned; archive moves the task and evidence
+  into `.lattice/tasks/archive/` to commit. Old versioned active task files are
+  migration provenance, never the live board. Run `init` after upgrading.
+- What the system does now: code + tests > git history > docs. What it should do:
+  the user's request, task goal/acceptance, and valid specs. Resolve conflicts
+  explicitly; fix code or contract in the same change.
+- Follow the repository's authorization limits for commits and merges; this
+  protocol grants no additional permission. Within those limits, commit each
+  verifiable increment. `task done` checks the checkout and binds verification
+  to its commit and contract; failed or stale evidence cannot authorize archive.
+  `--evidence` records an explicit manual observation, not an automated test.
+- Merge into main, then run `task archive` from the primary tree on main. Archive
+  requires fresh task evidence and clean trees; when the merged content differs,
+  it runs verification there too. Manually verified changes need fresh
+  `archive --evidence` for a different merged tree. Failure retains the task and
+  worktree; success removes the worktree/merged branch and prints consolidation.
+- Promote stable behavior to `.lattice/spec`, reasoning and real alternatives to
+  `.lattice/intent`, and preconditions/pitfalls to AGENTS.md. Keep transient
+  progress and dead ends with the active task. Preserve only useful decisions.
+  Before pausing or finishing, reconcile the handoff with the final diff and
+  observed acceptance: remaining work, constraints, rejected approaches, changed
+  operational prerequisites, and evidence limits. Link maintained sources from
+  `.lattice/knowledge.md`; update their contents, not only the index. Date live
+  observations and name their source and recheck method. Provider-private memory
+  is not shared project knowledge. Store credential locations only, never values.
+- Reuse build caches where supported; remove disposable task outputs at completion.
+  Measure framework changes on real tasks using delivery time, verification
+  retries, human intervention, and rework; a passing smoke or doctor is not user
+  acceptance. The agent chooses how to plan, implement, and verify.
+{PROTOCOL_END}"""
+
+
+AGENTS_SKELETON = """---
+type: contract
+---
+# {name} — Agent Manual
+
+> Long-lived operational manual. Only verified, stable facts belong here.
+> Current status/progress lives in `.lattice/runtime/tasks/`; archives enter git.
+
+## Overview
+
+(architecture, service topology — fill in)
+
+## Environment & Preconditions
+
+(locked versions, platform quirks, external-system quirks — land these the moment
+they are discovered)
+
+## Commands
+
+- install:
+- test:
+- lint:
+- build/smoke:
+
+## Known Pitfalls & Prohibitions
+
+(fill in)
+
+{protocol}
+"""
+
+TASK_BODY = """
+## Goal
+
+(what and why — one paragraph)
+
+## Acceptance
+
+- [ ] (observable behavior)
+
+## Notes / Dead ends
+
+(transient state and dead ends only; promote stable facts to AGENTS.md or
+.lattice/spec immediately, not here)
+
+## Handoff
+
+(before pausing or finishing: remaining work and acceptance limits; link changed
+contracts, decisions, operational prerequisites, and their evidence; say when no
+new durable knowledge was produced)
+"""
+
+CONSOLIDATION_CHECKLIST = """Consolidation checklist (promote or forget):
+  1. Re-read this task's Notes / Dead ends against the actual diff.
+  2. Promote proven stable facts: preconditions/pitfalls -> AGENTS.md;
+     behavior contracts -> .lattice/spec; rationale and rejected
+     alternatives -> .lattice/intent.
+  3. Everything else stays archived with the task — do not copy it forward.
+  4. Fix any long-lived doc this work proved stale, in the same commit."""
+
+TASK_KEYS = ["id", "title", "status", "owner", "branch", "worktree", "tree", "verify",
+             "verified", "created", "claimed", "done"]
+PROTECTED_BRANCHES = ("main", "master")
+
+
+# ---------- git & paths ----------
+
+def run_git(root: Path, *args: str):
+    try:
+        # The user hook must not execute repository fsmonitor commands or let
+        # inherited Git overrides redirect its read-only queries elsewhere.
+        prefix = [HOOK_GIT, "--no-pager", "-c", "core.fsmonitor=false",
+                  "-c", "log.showSignature=false"] if HOOK_GIT else ["git"]
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")} if HOOK_GIT else None
+        if env is not None:
+            env["GIT_OPTIONAL_LOCKS"] = "0"
+        res = subprocess.run([*prefix, "-C", str(root), *args],
+                             capture_output=True, text=True, env=env,
+                             timeout=5 if HOOK_GIT else None)
+        return res.returncode, res.stdout.strip(), res.stderr.strip()
+    except FileNotFoundError:
+        return 127, "", "git unavailable"
+
+
+def git(root: Path, *args: str) -> str:
+    rc, out, _ = run_git(root, *args)
+    return out if rc == 0 else "(git unavailable)"
+
+
+def repo_root() -> Path:
+    rc, out, _ = run_git(Path.cwd(), "rev-parse", "--show-toplevel")
+    return Path(out) if rc == 0 else Path.cwd()
+
+
+def primary_root(root: Path) -> Path:
+    """The main working tree's root. Inside a linked worktree, task state still
+    lives in the primary tree so every session reads one shared board."""
+    rc, out, _ = run_git(root, "rev-parse", "--git-common-dir")
+    if rc != 0:
+        return root
+    common = Path(out)
+    if not common.is_absolute():
+        common = (root / common).resolve()
+    return common.parent if common.name == ".git" else root
+
+
+def lat_dir(root: Path) -> Path:
+    return root / ".lattice"
+
+
+def runtime_dir(root: Path) -> Path:
+    return lat_dir(root) / "runtime"
+
+
+def tasks_dir(root: Path) -> Path:
+    return runtime_dir(root) / "tasks"
+
+
+def check_task_id(task_id: str) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", task_id):
+        raise SystemExit("error: invalid task id")
+
+
+@contextmanager
+def locked(root: Path, scope: str):
+    """OS-owned, non-blocking operation locks. Never unlink a lock's inode.
+
+    Task locks span verification; the board lock spans only short mutations.
+    These protect CLI operations, not arbitrary git commands or manual edits.
+    """
+    folder = runtime_dir(root) / "locks"
+    name = hashlib.sha256(scope.encode()).hexdigest() + ".lock"
+    with file_lock(folder / name, scope):
+        yield
+
+
+@contextmanager
+def file_lock(path: Path, scope: str):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+b") as fh:
+        if os.name == "nt":
+            import msvcrt
+            if fh.tell() == 0:
+                fh.write(b"\0")
+                fh.flush()
+            fh.seek(0)
+            try:
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            except OSError:
+                raise SystemExit(f"error: another lattice operation holds {scope}; retry when it finishes")
+        else:
+            import fcntl
+            try:
+                fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise SystemExit(f"error: another lattice operation holds {scope}; retry when it finishes")
+        try:
+            yield
+        finally:
+            if os.name == "nt":
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def atomic_write(path: Path, text: str) -> None:
+    if path.is_file() and path.read_bytes() == text.encode("utf-8"):
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".write-", dir=path.parent)
+    try:
+        os.chmod(temporary, path.stat().st_mode & 0o777 if path.exists() else 0o644)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def write_json(path: Path, value) -> None:
+    atomic_write(path, json.dumps(value, indent=2, ensure_ascii=False) + "\n")
+
+
+def read_json(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise SystemExit(f"error: missing or invalid record {path}")
+
+
+def current_branch(tree: Path) -> str:
+    rc, out, _ = run_git(tree, "symbolic-ref", "--short", "-q", "HEAD")
+    return out if rc == 0 else ""
+
+
+def branch_exists(root: Path, branch: str) -> bool:
+    rc, _, _ = run_git(root, "rev-parse", "--verify", "--quiet",
+                       f"refs/heads/{branch}")
+    return rc == 0
+
+
+def default_branch(root: Path) -> str:
+    """The mainline: `git config lattice.main <branch>` if set and present,
+    else main or master."""
+    rc, out, _ = run_git(root, "config", "--get", "lattice.main")
+    if rc == 0 and out and branch_exists(root, out):
+        return out
+    for name in PROTECTED_BRANCHES:
+        if branch_exists(root, name):
+            return name
+    return ""
+
+
+def is_dirty(tree: Path) -> bool:
+    rc, out, _ = run_git(tree, "status", "--porcelain")
+    if rc != 0:
+        raise SystemExit(f"error: cannot inspect git status in {tree}")
+    return bool(out)
+
+
+def default_owner() -> str:
+    """LATTICE_OWNER wins; otherwise the agent is detected from its environment:
+    Claude Code exports CLAUDECODE, Codex child processes carry CODEX_* variables
+    (CODEX_MANAGED_BY_NPM from its launcher, CODEX_SANDBOX under its sandbox)."""
+    if os.environ.get("LATTICE_OWNER"):
+        return os.environ["LATTICE_OWNER"]
+    if os.environ.get("CLAUDECODE"):
+        return "claude"
+    if any(k.startswith("CODEX_") for k in os.environ):
+        return "codex"
+    return getpass.getuser()
+
+
+def now_iso() -> str:
+    return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def slugify(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40].strip("-") or "task"
+
+
+SHELL_WORDS = {"cd", "export", "set", "source", ".", "if", "for", "while", "until",
+               "case", "!", "[", "[[", "(", "{", "time"}
+
+
+def verify_looks_runnable(cmd: str) -> bool:
+    """Cheap lint for `verify:`: its first word must be an executable, a shell
+    word, an env assignment, or a path — prose like 'see tasks.md' is not."""
+    words = cmd.split()
+    first = words[0] if words else ""
+    return (not first or first in SHELL_WORDS or "=" in first
+            or first[0] in "/.~$(" or shutil.which(first) is not None)
+
+
+RUNTIME_PATH = ".lattice/runtime/"
+
+
+def verify_issue(cmd: str) -> str:
+    """Lint `verify:`. Prose cannot run, and a machine-local runtime path stops
+    meaning anything once archive moves the task folder."""
+    if not verify_looks_runnable(cmd):
+        return (f"verify '{cmd[:40]}' is not a shell command — `task done` will "
+                f"fail; fix `verify:` or plan on --evidence")
+    if RUNTIME_PATH in cmd:
+        return (f"verify hard-codes {RUNTIME_PATH}; reference task files through "
+                f"$LATTICE_TASK_DIR so the command survives archive")
+    return ""
+
+
+# ---------- task file frontmatter ----------
+
+def read_task(path: Path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise  # A concurrent archive may move a task while the board is read.
+    except (UnicodeError, OSError) as error:
+        raise SystemExit(f"error: cannot read task file {path}: {error}") from None
+    m = re.match(r"\A---\n(.*?)\n---\n(.*)\Z", text, re.DOTALL)
+    if not m:
+        raise SystemExit(f"error: malformed frontmatter in {path}")
+    meta = {}
+    for line in m.group(1).splitlines():
+        if ":" in line:
+            key, _, val = line.partition(":")
+            meta[key.strip()] = val.strip()
+    if not meta.get("id") or "status" not in meta:
+        raise SystemExit(f"error: task frontmatter needs id and status in {path}")
+    return meta, m.group(2)
+
+
+def write_task(path: Path, meta: dict, body: str) -> None:
+    front = "\n".join(f"{k}: {meta.get(k, '')}" for k in TASK_KEYS)
+    if any("\n" in str(meta.get(k, "")) or "\r" in str(meta.get(k, "")) for k in TASK_KEYS):
+        raise SystemExit("error: task fields must be single-line strings")
+    atomic_write(path, f"---\n{front}\n---\n{body}")
+
+
+def iter_tasks(root: Path, broken=None):
+    """Yield (path, meta, body) per live task. Read-only commands pass a
+    `broken` list so one damaged task.md is reported instead of hiding the
+    whole board; mutations keep the default and fail closed on it."""
+    tasks = tasks_dir(root)
+    if not tasks.is_dir():
+        return
+    for d in sorted(tasks.iterdir()):
+        if d.name == "archive" or not d.is_dir():
+            continue
+        f = d / "task.md"
+        if not f.is_file():
+            continue
+        try:
+            yield f, *read_task(f)
+        except FileNotFoundError:
+            continue  # An archive may move a task while a reader lists it.
+        except SystemExit as error:
+            if broken is None:
+                raise
+            broken.append(f"unreadable task {d.name}: {str(error).replace('error: ', '', 1)}")
+
+
+def find_task(root: Path, task_id: str):
+    check_task_id(task_id)
+    f = tasks_dir(root) / task_id / "task.md"
+    if not f.is_file():
+        raise SystemExit(f"error: no task '{task_id}' (see: lattice task list)")
+    meta, body = read_task(f)
+    if meta.get("id") != task_id:
+        raise SystemExit(f"error: task id does not match its directory: {f}")
+    return f, meta, body
+
+
+def task_tree(root: Path, meta: dict, here: Path) -> Path:
+    """Resolve only the registered tree on the claimed branch; no cwd fallback."""
+    tree = (root / (meta.get("tree") or meta.get("worktree") or ".")).resolve()
+    if tree != root and root not in tree.parents:
+        raise SystemExit("error: task tree is outside this repository")
+    rc, top, _ = run_git(tree, "rev-parse", "--show-toplevel")
+    if rc != 0 or Path(top).resolve() != tree or primary_root(tree) != root \
+            or current_branch(tree) != meta.get("branch"):
+        raise SystemExit(f"error: task {meta['id']} is not checked out on "
+                         f"{meta.get('branch')} at {tree}; restore its checkout first")
+    return tree
+
+
+def migrate_task_state(root: Path, announce: bool = True) -> None:
+    """Keep old versioned artifacts verbatim; import each legacy id once.
+
+    Subsequent init calls can discover old tasks on another branch. The import
+    ledger prevents a checkout from resurrecting an already archived task.
+    Legacy success is never accepted as structured verification evidence.
+    """
+    tasks_dir(root).mkdir(parents=True, exist_ok=True)
+    atomic_write(runtime_dir(root) / ".gitignore", "*\n")
+    ledger = runtime_dir(root) / "legacy-imports.json"
+    seen = set(read_json(ledger)) if ledger.exists() else set()
+    for f in sorted((lat_dir(root) / "tasks").glob("*/task.md")):
+        if f.parent.name == "archive" or f.parent.name in seen:
+            continue
+        meta, body = read_task(f)
+        tid = meta["id"]
+        check_task_id(tid)
+        if tid != f.parent.name:
+            raise SystemExit(f"error: legacy task id does not match its directory: {f}")
+        if any((lat_dir(root) / "tasks/archive").glob(f"*/{tid}")):
+            seen.add(tid)
+            write_json(ledger, sorted(seen))
+            continue
+        dest = tasks_dir(root) / tid
+        if not dest.exists():
+            shutil.copytree(f.parent, dest)
+            meta["tree"] = meta.get("worktree") or "."
+            if meta.get("status") == "done":
+                meta["status"] = "in_progress" if meta.get("branch") else "open"
+            meta.update(verified="", done="")
+            write_task(dest / "task.md", meta, body)
+            if announce:
+                print(f"imported {tid} into shared runtime; legacy artifacts kept, reverify before archive")
+        seen.add(tid)
+        write_json(ledger, sorted(seen))
+    atomic_write(runtime_dir(root) / "format", "1\n")
+
+
+def archived_task(root: Path, tid: str):
+    """The archived folder of a task id, if any."""
+    return next(iter(sorted((lat_dir(root) / "tasks/archive").glob(f"*/{tid}"))), None)
+
+
+def legacy_folder_issue(folder: Path, archived: Path) -> str:
+    """Empty when everything except the superseded task.md is byte-identical
+    in the archive; otherwise names the first file whose removal would lose data."""
+    for path in sorted(folder.rglob("*")):
+        rel = path.relative_to(folder).as_posix()
+        if rel == "task.md" or (path.is_dir() and not path.is_symlink()):
+            continue
+        twin = archived / rel
+        if path.is_symlink() or not twin.is_file() or twin.read_bytes() != path.read_bytes():
+            return f"{rel} differs from the archive"
+    return ""
+
+
+def retire_legacy_folder(root: Path, tid: str) -> str:
+    """Once a task is archived, its imported versioned folder is a duplicate
+    that reads like a live record. Remove it only when nothing is lost."""
+    folder = lat_dir(root) / "tasks" / tid
+    archived = archived_task(root, tid)
+    if archived is None or folder.is_symlink() or not folder.is_dir():
+        return ""
+    problem = legacy_folder_issue(folder, archived)
+    if problem:
+        return f"warn: legacy task folder .lattice/tasks/{tid} kept: {problem}; reconcile it by hand"
+    shutil.rmtree(folder)
+    return f"removed legacy task folder .lattice/tasks/{tid} (identical copy archived; commit the removal)"
+
+
+# ---------- OpenSpec migration ----------
+
+# Agent tool files OpenSpec's `init` scatters per tool; they only drive the
+# OpenSpec CLI and go away with it.
+OPENSPEC_TOOL_GLOBS = (
+    ".claude/commands/opsx", ".claude/commands/openspec",
+    ".claude/skills/openspec-*", ".claude/skills/.openspec-target",
+    ".agents/skills/openspec-*", ".agents/skills/.openspec-target",
+    ".codex/prompts/openspec-*", ".opencode/command/openspec-*",
+    ".cursor/commands/openspec-*", ".github/prompts/openspec-*",
+    ".windsurf/workflows/openspec-*", ".kilocode/workflows/openspec-*",
+    ".clinerules/openspec-*", ".roo/commands/openspec-*",
+    ".gemini/commands/openspec", ".qwen/commands/openspec",
+    ".iflow/commands/openspec", ".crush/commands/openspec",
+    ".augment/commands/openspec", ".amazonq/prompts/openspec-*",
+    ".kiro/prompts/openspec-*",
+)
+OPENSPEC_BLOCK = re.compile(r"\n?<!-- OPENSPEC:START -->.*?<!-- OPENSPEC:END -->\n?",
+                            re.DOTALL)
+SCAN_SKIP_DIRS = {".lattice", "node_modules", "venv", "dist", "build", "target",
+                  "DerivedData", "__pycache__"}
+SCAN_KEEP_HIDDEN = {".claude", ".codex", ".agents", ".github", ".cursor", ".opencode"}
+
+
+def yaml_value(text: str, key: str) -> str:
+    """Value of a top-level `key:` in a simple YAML file: one line, an indented
+    continuation, or a `|`/`>` block (stdlib only, enough for OpenSpec files)."""
+    lines = text.splitlines()
+    for i, ln in enumerate(lines):
+        m = re.match(rf"^{re.escape(key)}:\s*(.*)$", ln)
+        if not m:
+            continue
+        rest = m.group(1).strip()
+        block = rest in ("|", ">", "|-", ">-")
+        body = []
+        for nxt in lines[i + 1:]:
+            if nxt.strip() == "":
+                body.append("")
+            elif nxt[0] in " \t":
+                body.append(nxt)
+            else:
+                break
+        while body and body[-1] == "":
+            body.pop()
+        if block:
+            indent = min((len(b) - len(b.lstrip()) for b in body if b.strip()), default=0)
+            return "\n".join(b[indent:] if b.strip() else "" for b in body).strip()
+        return " ".join([rest.strip("\"'")] + [b.strip() for b in body if b.strip()]).strip()
+    return ""
+
+
+def md_h1(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    for ln in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if ln.startswith("# "):
+            return re.sub(r"^#\s*(Change:\s*)?", "", ln).strip()
+    return ""
+
+
+def md_section_paragraph(path: Path, heading: str) -> str:
+    """First paragraph under the `## <heading>` section of a markdown file."""
+    if not path.is_file():
+        return ""
+    para, inside = [], False
+    for ln in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if ln.startswith("## "):
+            if inside:
+                break
+            inside = ln[3:].strip().lower().startswith(heading.lower())
+            continue
+        if inside:
+            if ln.strip():
+                para.append(ln.strip())
+            elif para:
+                break
+    return " ".join(para)
+
+
+def checkbox_counts(path: Path):
+    if not path.is_file():
+        return 0, 0
+    text = path.read_text(encoding="utf-8", errors="replace")
+    done = len(re.findall(r"^\s*- \[[xX]\]", text, re.M))
+    return done, done + len(re.findall(r"^\s*- \[ \]", text, re.M))
+
+
+def scan_mentions(root: Path, needle: str):
+    """Lines still mentioning `needle` outside .lattice/, git, and build trees."""
+    hits = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in SCAN_SKIP_DIRS
+                             and (not d.startswith(".") or d in SCAN_KEEP_HIDDEN))
+        for fn in sorted(filenames):
+            p = Path(dirpath) / fn
+            try:
+                if p.stat().st_size > 1_000_000:
+                    continue
+                data = p.read_bytes()
+            except OSError:
+                continue
+            if b"\0" in data[:4096]:
+                continue
+            for i, ln in enumerate(data.decode("utf-8", errors="replace").splitlines(), 1):
+                if needle in ln.lower():
+                    hits.append(f"{p.relative_to(root)}:{i}: {ln.strip()[:100]}")
+    return hits
+
+
+def migrate_openspec(root: Path) -> None:
+    """Move an OpenSpec tree into .lattice/ by trust tier; nothing is discarded.
+
+    specs/<a>/<b>/spec.md      -> .lattice/spec/<a>-<b>.md
+    changes/<id>/              -> .lattice/tasks/<id>/ (+ generated task.md)
+    changes/archive/*          -> .lattice/tasks/archive/openspec/*
+    config.yaml and the rest   -> .lattice/tasks/archive/openspec/ (provenance);
+                                  its `context` is folded into AGENTS.md
+    OpenSpec tool files and managed AGENTS.md/CLAUDE.md blocks are removed.
+    """
+    src = root / "openspec"
+    if not src.is_dir():
+        raise SystemExit("error: no openspec/ directory here — nothing to migrate")
+    lat = lat_dir(root)
+    spec_dst, tasks_dst = lat / "spec", lat / "tasks"
+    arch_dst = tasks_dst / "archive" / "openspec"
+    for d in (spec_dst, tasks_dst, arch_dst):
+        d.mkdir(parents=True, exist_ok=True)
+    today = datetime.date.today().isoformat()
+    n_specs = n_archived = 0
+    tasks, complete, removed = [], [], []
+
+    specs = src / "specs"
+    if specs.is_dir():
+        for f in sorted(specs.rglob("spec.md")):
+            name = "-".join(f.parent.relative_to(specs).parts) + ".md"
+            dst = spec_dst / name
+            if dst.exists():
+                dst = spec_dst / (name[:-3] + "-openspec.md")
+            shutil.move(str(f), str(dst))
+            n_specs += 1
+
+    changes = src / "changes"
+    if changes.is_dir():
+        for c in sorted(changes.iterdir()):
+            if not c.is_dir():
+                continue
+            if c.name == "archive":
+                for a in sorted(c.iterdir()):
+                    shutil.move(str(a), str(arch_dst / a.name))
+                    n_archived += 1
+                continue
+            dst = tasks_dst / c.name
+            if dst.exists():
+                raise SystemExit(
+                    f"error: task '{c.name}' already exists — resolve by hand, "
+                    f"then rerun (openspec/ is untouched)")
+            shutil.move(str(c), str(dst))
+            meta_file = dst / ".openspec.yaml"
+            meta_text = meta_file.read_text(encoding="utf-8") if meta_file.is_file() else ""
+            proposal = dst / "proposal.md"
+            goal = (md_section_paragraph(proposal, "Why")
+                    or yaml_value(meta_text, "goal")
+                    or md_section_paragraph(proposal, "Summary")
+                    or "(see proposal.md)")
+            done, total = checkbox_counts(dst / "tasks.md")
+            if total:
+                acceptance = (f"- [ ] All {total} items in tasks.md, each with its own "
+                              f"proof ({done} were checked at migration)")
+                if done == total:
+                    complete.append(c.name)
+            else:
+                acceptance = ("- [ ] Everything under \"What Changes\" in proposal.md "
+                              "is delivered")
+            kept = ", ".join(sorted(p.name for p in dst.iterdir()))
+            body = (f"\n## Goal\n\n{goal}\n\n## Acceptance\n\n{acceptance}\n"
+                    f"- [ ] The behavior described under specs/ holds\n\n"
+                    f"## Notes / Dead ends\n\n- Migrated from openspec/changes/{c.name} "
+                    f"on {today}; original artifacts kept here: {kept}.\n")
+            meta = {"id": c.name, "title": md_h1(proposal) or
+                    c.name.replace("-", " ").replace("_", " ").capitalize(),
+                    "status": "open", "verify": "",
+                    "created": yaml_value(meta_text, "created") or now_iso()}
+            write_task(dst / "task.md", meta, body)
+            tasks.append(c.name)
+
+    cfg = src / "config.yaml"
+    context_text = yaml_value(cfg.read_text(encoding="utf-8"), "context") \
+        if cfg.is_file() else ""
+    for p in sorted(src.iterdir()):
+        if p.is_dir() and not any(p.iterdir()):
+            p.rmdir()
+        else:
+            shutil.move(str(p), str(arch_dst / p.name))
+    shutil.rmtree(src, ignore_errors=True)
+
+    agents = root / "AGENTS.md"
+    for f in (agents, root / "CLAUDE.md"):
+        if f.is_file():
+            text = f.read_text(encoding="utf-8")
+            new = OPENSPEC_BLOCK.sub("\n", text)
+            if new != text:
+                f.write_text(new, encoding="utf-8")
+                removed.append(f"{f.name}: OpenSpec managed block")
+    if context_text:
+        if not agents.is_file():
+            agents.write_text(AGENTS_SKELETON.format(name=root.name,
+                                                     protocol=PROTOCOL_SECTION),
+                              encoding="utf-8")
+        text = agents.read_text(encoding="utf-8")
+        marker = "migrated from openspec/config.yaml"
+        if marker not in text:
+            section = (f"## Project context ({marker} — verify, then fold into "
+                       f"the sections above)\n\n{context_text}\n\n")
+            text = text.replace(PROTOCOL_START, section + PROTOCOL_START, 1) \
+                if PROTOCOL_START in text else text.rstrip("\n") + "\n\n" + section
+            agents.write_text(text, encoding="utf-8")
+
+    for pattern in OPENSPEC_TOOL_GLOBS:
+        for p in sorted(root.glob(pattern)):
+            shutil.rmtree(p) if p.is_dir() else p.unlink()
+            removed.append(str(p.relative_to(root)))
+            parent = p.parent
+            while parent != root and parent.is_dir() and not any(parent.iterdir()):
+                parent.rmdir()
+                parent = parent.parent
+
+    print(f"migrated openspec/: {n_specs} spec(s) -> .lattice/spec, {len(tasks)} "
+          f"change(s) -> .lattice/tasks, {n_archived} archived -> "
+          f".lattice/tasks/archive/openspec (config.yaml kept there)")
+    for r in removed:
+        print(f"removed {r}")
+    if context_text:
+        print("folded openspec config context into AGENTS.md — verify it")
+    if complete:
+        print("every tasks.md item already checked — verify, then `task done "
+              "--evidence` and archive: " + ", ".join(complete))
+    mentions = scan_mentions(root, "openspec")
+    if mentions:
+        print(f"still mentioning openspec ({len(mentions)} line(s) — fix by hand):")
+        for m in mentions[:25]:
+            print(f"  {m}")
+        if len(mentions) > 25:
+            print(f"  ... and {len(mentions) - 25} more")
+    print("next: set `verify:` on the active tasks, fill AGENTS.md, run "
+          "`lattice doctor`, commit")
+
+
+# ---------- init ----------
+
+HOOK_COMMAND = "python3 .lattice/lattice context"
+# Both agents read the same hooks schema: {"hooks": {"SessionStart": [{"hooks":
+# [{"type": "command", "command": ...}]}]}}. Each injects the command's stdout
+# into the model's context when a session starts.
+HOOK_FILES = {
+    "Claude Code": Path(".claude") / "settings.json",
+    "Codex": Path(".codex") / "hooks.json",
+}
+
+
+def load_hook_settings(root: Path, rel: Path) -> dict:
+    """Read the shared hook envelope without interpreting unrelated settings."""
+    path = root / rel
+    if not path.exists():
+        return {}
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise ValueError(f"{rel}: cannot read valid hook JSON") from error
+    if not isinstance(settings, dict) or not isinstance(settings.get("hooks", {}), dict):
+        raise ValueError(f"{rel}: settings and hooks must be JSON objects")
+    for event, entries in settings.get("hooks", {}).items():
+        if not isinstance(entries, list):
+            raise ValueError(f"{rel}: hook events must contain entry lists")
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("hooks"), list) \
+                    or not all(isinstance(h, dict) for h in entry["hooks"]):
+                raise ValueError(f"{rel}: hook entries must contain lists of hook objects")
+    return settings
+
+
+def owned_hooks(settings: dict, command: str):
+    return [(event, entry, hook)
+            for event, entries in settings.get("hooks", {}).items()
+            for entry in entries for hook in entry["hooks"]
+            if hook.get("command") == command]
+
+
+def session_hook_issue(settings: dict, command: str = HOOK_COMMAND) -> str:
+    owned = owned_hooks(settings, command)
+    if len(owned) != 1:
+        return "expected exactly one Lattice SessionStart command"
+    event, entry, hook = owned[0]
+    if event != "SessionStart" or entry.get("matcher") not in (None, "", "*", ".*") \
+            or hook.get("type") != "command" or hook.get("async", False) is not False:
+        return "Lattice hook must be an unconditional synchronous SessionStart command"
+    return ""
+
+
+def protocol_block(text: str) -> str:
+    """Reject ambiguous managed markers instead of replacing user prose."""
+    starts, ends = text.count(PROTOCOL_START), text.count(PROTOCOL_END)
+    if not starts and not ends:
+        return ""
+    if starts != 1 or ends != 1 or text.index(PROTOCOL_START) > text.index(PROTOCOL_END):
+        raise ValueError("AGENTS.md: malformed or duplicate Lattice protocol markers")
+    return text[text.index(PROTOCOL_START):text.index(PROTOCOL_END) + len(PROTOCOL_END)]
+
+
+def has_agents_import(text: str) -> bool:
+    """Recognize a real import rather than a comment or Markdown example."""
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    fence = ""
+    for line in text.splitlines():
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if fence:
+            if re.fullmatch(r" {0,3}" + re.escape(fence[0]) +
+                            "{" + str(len(fence)) + r",}\s*", line):
+                fence = ""
+            continue
+        if marker:
+            fence = marker.group(1)
+            continue
+        plain = re.sub(r"(`+).*?\1", "", line)
+        if re.search(r"(?<!\S)@(?:\./)?AGENTS\.md(?=\s|$)", plain):
+            return True
+    return False
+
+
+def entrypoint_issues(root: Path):
+    issues = []
+    agents = root / "AGENTS.md"
+    if not agents.is_file():
+        issues.append("AGENTS.md missing — run `lattice init`")
+    else:
+        try:
+            if protocol_block(agents.read_text(encoding="utf-8")) != PROTOCOL_SECTION:
+                issues.append("AGENTS.md: Lattice protocol missing or outdated — run `lattice init`")
+        except ValueError as error:
+            issues.append(str(error))
+    claude = root / "CLAUDE.md"
+    if not claude.is_file() or not has_agents_import(claude.read_text(encoding="utf-8")):
+        issues.append("CLAUDE.md missing or lacks '@AGENTS.md' import")
+    try:
+        mode = hook_mode(primary_root(root))
+        if mode["mode"] == "user":
+            issues.extend(user_hook_issues(primary_root(root), Path(mode["user_dir"])))
+    except ValueError as error:
+        issues.append(str(error))
+        mode = {"mode": "invalid"}
+    for agent, rel in HOOK_FILES.items():
+        try:
+            settings = load_hook_settings(root, rel)
+            issue = session_hook_issue(settings) if mode["mode"] == "project" else (
+                "redundant project hook in user mode" if owned_hooks(settings, HOOK_COMMAND) else "")
+            if issue:
+                issues.append(f"{agent} ({rel}): {issue} — run `lattice init`")
+        except ValueError as error:
+            issues.append(str(error))
+    vendored = lat_dir(root) / "lattice"
+    if not vendored.is_file() or vendored.read_bytes() != Path(__file__).read_bytes():
+        issues.append(".lattice/lattice differs from the running CLI — run `lattice init` with the intended version")
+    return issues
+
+
+def remove_hook(settings: dict, command: str) -> bool:
+    changed = False
+    for event, entries in settings.get("hooks", {}).items():
+        kept = []
+        for entry in entries:
+            remaining = [h for h in entry["hooks"] if h.get("command") != command]
+            if len(remaining) == len(entry["hooks"]):
+                kept.append(entry)
+            else:
+                changed = True
+                if remaining:
+                    kept.append(dict(entry, hooks=remaining))
+        settings["hooks"][event] = kept
+    return changed
+
+
+def install_session_hook(root: Path, rel: Path, agent: str,
+                         command: str = HOOK_COMMAND) -> bool:
+    """Merge a SessionStart hook into one agent's JSON settings (idempotent),
+    so every new session begins with the lattice bundle without anyone asking.
+    Codex additionally asks the user once to trust a project-level hook."""
+    path = root / rel
+    settings = load_hook_settings(root, rel)
+    if not session_hook_issue(settings, command):
+        return False
+    # Only the exact managed command is ours. Preserve custom commands,
+    # entry metadata, ordering, and settings outside these owned hooks.
+    remove_hook(settings, command)
+    hooks = settings.setdefault("hooks", {})
+    hooks.setdefault("SessionStart", []).append(
+        {"hooks": [{"type": "command", "command": command}]})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write(path, json.dumps(settings, indent=2) + "\n")
+    return True
+
+
+# ---------- optional, explicit user integration ----------
+
+def default_user_dir() -> Path:
+    return Path.home() / ".local/share/lattice"
+
+
+def git_common_dir(root: Path):
+    rc, value, _ = run_git(root, "rev-parse", "--git-common-dir")
+    if rc != 0:
+        return None
+    path = Path(value)
+    return (path if path.is_absolute() else root / path).resolve()
+
+
+def hook_mode(root: Path) -> dict:
+    path = runtime_dir(root) / "hooks.json"
+    if not path.exists():
+        return {"mode": "project"}
+    try:
+        mode = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(mode, dict) and mode.get("mode") in ("project", "user"):
+            if mode["mode"] == "project" or (
+                    isinstance(mode.get("user_dir"), str) and Path(mode["user_dir"]).is_absolute()):
+                return mode
+    except (ValueError, OSError):
+        pass
+    raise ValueError(".lattice/runtime/hooks.json: invalid local hook mode")
+
+
+def load_user_config(folder: Path) -> dict:
+    try:
+        config = json.loads((folder / "config.json").read_text(encoding="utf-8"))
+        def absolute(value):
+            return isinstance(value, str) and Path(value).is_absolute()
+        if isinstance(config, dict) and config.get("format") == 1 \
+                and absolute(config.get("python")) and absolute(config.get("git")) \
+                and isinstance(config.get("command"), str) \
+                and isinstance(config.get("agents"), dict) and set(config["agents"]) == set(HOOK_FILES) \
+                and all(absolute(p) for p in config["agents"].values()) \
+                and isinstance(config.get("projects"), dict) \
+                and all(absolute(p) and absolute(g) for p, g in config["projects"].items()):
+            return config
+    except (ValueError, OSError):
+        pass
+    raise ValueError(f"{folder}: missing or invalid user hooks config; run `lattice hooks install`")
+
+
+def user_hook_issues(root, folder: Path):
+    try:
+        config = load_user_config(folder)
+        issues = []
+        for agent, path in config["agents"].items():
+            problem = session_hook_issue(load_hook_settings(Path(path).parent, Path(path).name),
+                                         user_hook_command(config, agent))
+            if problem:
+                issues.append(f"{agent} user hook: {problem} — run `lattice hooks install`")
+        for key in ("python", "git"):
+            if not Path(config[key]).is_file():
+                issues.append(f"user hook {key} executable is missing — run `lattice hooks install`")
+        installed = folder / "lattice"
+        if not installed.is_file() or installed.read_bytes() != Path(__file__).read_bytes():
+            issues.append("central Lattice script differs — run `lattice hooks install` with the intended version")
+        if root is not None and config["projects"].get(str(root.resolve())) != str(git_common_dir(root)):
+            issues.append("project is not enrolled in user hooks — run `lattice init --hooks user`")
+        return issues
+    except (ValueError, OSError) as error:
+        return [str(error)]
+
+
+def backup_user_file(folder: Path, path: Path):
+    """Keep first-install recovery copies private; never print their content."""
+    backups = folder / "backups"
+    backups.mkdir(mode=0o700, exist_ok=True)
+    name = hashlib.sha256(str(path).encode()).hexdigest()
+    receipt = backups / (name + ".json")
+    if receipt.exists():
+        return
+    existed = path.exists()
+    if existed:
+        destination = backups / (name + ".original")
+        destination.write_bytes(path.read_bytes())
+        destination.chmod(0o600)
+    write_json(receipt, {"path": str(path), "existed": existed})
+    receipt.chmod(0o600)
+
+
+def user_hook_command(config, agent):
+    return config["command"] + " --agent " + shlex.quote(agent)
+
+
+def cmd_hooks_install(args) -> int:
+    folder = Path(args.user_dir or default_user_dir()).expanduser().resolve()
+    try:
+        previous = load_user_config(folder) if (folder / "config.json").exists() else None
+        agents = previous["agents"] if previous else {
+            agent: str(Path.home() / rel) for agent, rel in HOOK_FILES.items()}
+        agents = dict(agents)
+        for agent, override in (("Codex", args.codex_config), ("Claude Code", args.claude_config)):
+            if override:
+                agents[agent] = str(Path(override).expanduser().resolve())
+        # Relocating an existing profile must not leave a second active hook.
+        if previous and agents != previous["agents"]:
+            raise ValueError("user hook config paths changed; remove the old integration first")
+        for path in agents.values():
+            load_hook_settings(Path(path).parent, Path(path).name)
+        python = str(Path(sys.executable).resolve())
+        git_path = shutil.which("git")
+        if not git_path:
+            raise ValueError("git executable not found")
+        # -I ignores project PYTHONPATH and user-site startup customizations.
+        command = shlex.join([python, "-I", str(folder / "lattice"), "hooks", "context"])
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with file_lock(folder / "config.lock", "user hooks"):
+            # Reload under lock so a concurrent enrollment is never overwritten.
+            previous = load_user_config(folder) if (folder / "config.json").exists() else None
+            for path in agents.values():
+                backup_user_file(folder, Path(path))
+            installed = folder / "lattice"
+            atomic_write(installed, Path(__file__).read_text(encoding="utf-8"))
+            installed.chmod(0o755)
+            for agent, path in agents.items():
+                target = Path(path)
+                if previous and previous["command"] != command:
+                    settings = load_hook_settings(target.parent, target.name)
+                    if remove_hook(settings, user_hook_command(previous, agent)):
+                        write_json(target, settings)
+                install_session_hook(target.parent, target.name, agent,
+                                     user_hook_command({"command": command}, agent))
+            write_json(folder / "config.json", {
+                "format": 1, "python": python, "git": str(Path(git_path).resolve()),
+                "command": command, "agents": agents,
+                "projects": previous["projects"] if previous else {}})
+        print(f"installed lattice {VERSION} user hooks at {folder}")
+        print("Codex: review the user hook in /hooks; native trust is not changed by this command.")
+        print("Next: lattice init --hooks user in each selected primary checkout.")
+        return 0
+    except ValueError as error:
+        raise SystemExit(f"error: {error}")
+
+
+def cmd_hooks_status(args) -> int:
+    folder = Path(args.user_dir or default_user_dir()).expanduser().resolve()
+    try:
+        config = load_user_config(folder)
+    except ValueError as error:
+        raise SystemExit(f"error: {error}")
+    issues = user_hook_issues(None, folder)
+    print(f"User hooks: {folder}; {len(config['projects'])} enrolled projects")
+    for project in sorted(config["projects"]):
+        print(f"- {project}")
+    for issue in issues:
+        print(f"warn: {issue}")
+    print("Native hook trust/loading is checked by the agent, not this status command.")
+    return int(bool(issues))
+
+
+def cmd_hooks_context(args) -> int:
+    """Read-only dispatcher. Never import, invoke, or migrate a repository CLI."""
+    global HOOK_GIT
+    original_cwd = Path.cwd()
+    try:
+        if sys.stdin.isatty():
+            return 0
+        payload = json.loads(sys.stdin.read(65537))
+        if not isinstance(payload, dict) or not isinstance(payload.get("cwd"), str) \
+                or payload.get("hook_event_name", "SessionStart") != "SessionStart":
+            return 0
+        cwd = Path(payload["cwd"])
+        if not cwd.is_absolute():
+            return 0
+        cwd = cwd.resolve()
+        folder = Path(__file__).resolve().parent
+        config = load_user_config(folder)
+        # Check enrollment before touching the candidate repository or Git.
+        candidates = [Path(p) for p in config["projects"] if cwd == Path(p) or Path(p) in cwd.parents]
+        if not candidates:
+            return 0
+        root = max(candidates, key=lambda p: len(p.parts))
+        HOOK_GIT = config["git"]
+        rc, value, _ = run_git(cwd, "rev-parse", "--show-toplevel")
+        if rc != 0:
+            return 0
+        here = Path(value).resolve()
+        worktrees = root / ".lattice/worktrees"
+        if here != root and here.parent != worktrees:
+            return 0
+        if str(git_common_dir(here)) != config["projects"][str(root)]:
+            return 0
+        mode = hook_mode(root)
+        if mode["mode"] != "user" or Path(mode["user_dir"]).resolve() != folder:
+            return 0
+        # Old branches/worktrees may still carry the old hook. Let that hook
+        # provide the bundle until init refreshes the checkout; never double it.
+        if owned_hooks(load_hook_settings(here, HOOK_FILES[args.agent]), HOOK_COMMAND):
+            return 0
+        os.chdir(here)
+        return cmd_context(args)
+    except (ValueError, OSError, subprocess.TimeoutExpired):
+        return 0
+    finally:
+        HOOK_GIT = None
+        os.chdir(original_cwd)
+
+
+def cmd_init(args) -> int:
+    root = repo_root()
+    primary = primary_root(root)
+    # Validate editable envelopes before vendoring or migrating anything.
+    try:
+        for rel in HOOK_FILES.values():
+            load_hook_settings(root, rel)
+        if (root / "AGENTS.md").is_file():
+            protocol_block((root / "AGENTS.md").read_text(encoding="utf-8"))
+        mode = hook_mode(primary)
+        selected = args.hooks or mode["mode"]
+        user_dir = Path(args.user_dir or mode.get("user_dir") or default_user_dir()).expanduser().resolve()
+        if mode["mode"] == "user" and user_dir != Path(mode["user_dir"]):
+            raise ValueError("switch to project hook mode before changing --user-dir")
+        if args.user_dir and selected != "user":
+            raise ValueError("--user-dir requires user hook mode")
+        if selected == "user":
+            problems = user_hook_issues(None, user_dir)
+            if problems:
+                raise ValueError("; ".join(problems))
+            if not git_common_dir(root) or (primary != root and mode["mode"] != "user"):
+                raise ValueError("select hook mode from the primary git checkout")
+        elif mode["mode"] == "user":
+            if primary != root:
+                raise ValueError("select hook mode from the primary git checkout")
+            load_user_config(user_dir)
+    except ValueError as error:
+        raise SystemExit(f"error: {error}; repair it explicitly, then rerun init")
+    if args.from_openspec:
+        migrate_openspec(root)
+    elif (root / "openspec").is_dir():
+        print("note: openspec/ found — `lattice init --from-openspec` migrates it "
+              "into .lattice/ (nothing is discarded)")
+    lat = lat_dir(root)
+    for sub in ("intent", "spec", "tasks/archive"):
+        (lat / sub).mkdir(parents=True, exist_ok=True)
+
+    self_path = Path(__file__).resolve()
+    vendored = lat / "lattice"
+    if vendored.resolve() != self_path:
+        changed = not vendored.exists() or vendored.read_bytes() != self_path.read_bytes()
+        if changed:
+            shutil.copyfile(self_path, vendored)
+            vendored.chmod(0o755)
+            print(f"vendored lattice {VERSION} as .lattice/lattice")
+
+    ignore = lat / ".gitignore"
+    ignored = ignore.read_text(encoding="utf-8").splitlines() if ignore.exists() else []
+    for entry in ("worktrees/", "runtime/"):
+        if entry not in ignored:
+            ignored.append(entry)
+    atomic_write(ignore, "\n".join(ignored) + "\n")
+    with locked(primary_root(root), "board"):
+        migrate_task_state(primary_root(root))
+
+    agents = root / "AGENTS.md"
+    if not agents.exists():
+        agents.write_text(
+            AGENTS_SKELETON.format(name=root.name, protocol=PROTOCOL_SECTION),
+            encoding="utf-8",
+        )
+        print(f"created {agents.name} (skeleton — fill in verified facts)")
+    else:
+        text = agents.read_text(encoding="utf-8")
+        # Rewire the live manual, not dated receipts or preserved legacy files.
+        updated = text.replace(
+            "Current status/progress never does — that lives in git and `.lattice/tasks/`.",
+            "Current status/progress lives in `.lattice/runtime/tasks/`; archives enter git.")
+        updated = re.sub(r"\.lattice/tasks/(?!archive(?:/|`|\\s))(?=[A-Za-z0-9<])",
+                         ".lattice/runtime/tasks/", updated)
+        if updated != text:
+            atomic_write(agents, updated)
+            text = updated
+            print("updated active-task paths in AGENTS.md")
+        if PROTOCOL_START not in text:
+            with agents.open("a", encoding="utf-8") as fh:
+                fh.write("\n" + PROTOCOL_SECTION + "\n")
+            print(f"appended Lattice protocol section to existing {agents.name}")
+        else:
+            current = protocol_block(text)
+            if current != PROTOCOL_SECTION:
+                agents.write_text(text.replace(current, PROTOCOL_SECTION),
+                                  encoding="utf-8")
+                print(f"updated Lattice protocol section in {agents.name}")
+
+    claude = root / "CLAUDE.md"
+    if not claude.exists():
+        claude.write_text("@AGENTS.md\n", encoding="utf-8")
+        print("created CLAUDE.md -> @AGENTS.md")
+    elif not has_agents_import(claude.read_text(encoding="utf-8")):
+        with claude.open("a", encoding="utf-8") as fh:
+            fh.write("\n@AGENTS.md\n")
+        print("appended @AGENTS.md import to existing CLAUDE.md")
+
+    if selected == "user":
+        with file_lock(user_dir / "config.lock", "user hooks"):
+            config = load_user_config(user_dir)
+            config["projects"][str(primary.resolve())] = str(git_common_dir(primary))
+            write_json(user_dir / "config.json", config)
+            write_json(runtime_dir(primary) / "hooks.json",
+                       {"mode": "user", "user_dir": str(user_dir)})
+        for agent, rel in HOOK_FILES.items():
+            settings = load_hook_settings(root, rel)
+            if remove_hook(settings, HOOK_COMMAND):
+                write_json(root / rel, settings)
+                print(f"removed redundant {agent} project hook from {rel}")
+        print(f"enrolled in user hooks: {user_dir}")
+    else:
+        for agent, rel in HOOK_FILES.items():
+            if install_session_hook(root, rel, agent):
+                print(f"installed {agent} SessionStart hook in {rel} "
+                      f"(auto-injects `lattice context`)")
+        if mode["mode"] == "user":
+            with file_lock(user_dir / "config.lock", "user hooks"):
+                config = load_user_config(user_dir)
+                config["projects"].pop(str(primary.resolve()), None)
+                write_json(user_dir / "config.json", config)
+                write_json(runtime_dir(primary) / "hooks.json", {"mode": "project"})
+
+    init_knowledge(root)
+    print(f"lattice initialized at {lat}")
+    return 0
+
+
+# ---------- shared knowledge discovery ----------
+
+KNOWLEDGE_PATH = Path(".lattice/knowledge.md")
+MARKDOWN_BYTES = 512 * 1024
+SEARCH_FILES = 4000
+SEARCH_BYTES = 32 * 1024 * 1024
+
+
+def bounded_markdown(path: Path, root: Path, limit=MARKDOWN_BYTES):
+    """Read an ordinary file inside root; never follow links or wait on pipes."""
+    try:
+        relative = path.relative_to(root)
+        if any((root / Path(*relative.parts[:i])).is_symlink()
+               for i in range(1, len(relative.parts) + 1)):
+            return None
+        flags = os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
+        with os.fdopen(os.open(path, flags), "rb") as source:
+            info = os.fstat(source.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+                return None
+            data = source.read(limit + 1)
+        return data.decode("utf-8") if len(data) <= limit else None
+    except (OSError, UnicodeError, ValueError):
+        return None
+
+
+def knowledge_issues(root: Path):
+    content = bounded_markdown(root / KNOWLEDGE_PATH, root, 65536)
+    if content is None:
+        return [".lattice/knowledge.md missing, unsafe, or over 64 KiB; run init or repair the knowledge index"]
+    issues = []
+    for link in re.findall(r"\[[^\]\n]+\]\(([^)\n]+)\)", content):
+        target = link.split("#", 1)[0].strip().strip("<>")
+        if not target or re.match(r"[a-zA-Z][a-zA-Z0-9+.-]*:", target):
+            continue
+        resolved = (root / KNOWLEDGE_PATH.parent / target).resolve()
+        if (resolved != root and root not in resolved.parents) or not resolved.exists():
+            issues.append(f"knowledge index has missing or out-of-repo source: {target[:180]}")
+    return issues
+
+
+def init_knowledge(root: Path):
+    target = root / KNOWLEDGE_PATH
+    if target.exists() or target.is_symlink():
+        return
+    links = ["- [Agent manual](../AGENTS.md)"]
+    for relative, title in (("README.md", "Project overview"),
+                            ("docs/README.md", "Documentation")):
+        if (root / relative).is_file():
+            links.append(f"- [{title}](../{relative})")
+    links += ["- Behavior contracts: `.lattice/spec/` (when present)",
+              "- Design decisions: `.lattice/intent/` (when present)"]
+    atomic_write(target, "---\ntype: contract\n---\n# Project knowledge\n\n"
+                 "Map maintained sources here: product constraints, architecture, commands,\n"
+                 "operations and access prerequisites, and acceptance boundaries. Keep facts\n"
+                 "in those sources; this index is not a second status ledger.\n\n"
+                 + "\n".join(links) + "\n\n"
+                 "Use `python3 .lattice/lattice find \"<term>\"` before asking for prior\n"
+                 "information again. Active work is in the shared task board; archives are\n"
+                 "historical. Date operational observations, link evidence and recheck steps,\n"
+                 "and store credential locations only. Missing evidence stays unverified.\n")
+    print("created .lattice/knowledge.md (curate links to maintained project sources)")
+
+
+def knowledge_files(here: Path, root: Path):
+    # Only explicit documentation areas: no provider histories, env files, source
+    # dependency trees, arbitrary home directories, or remote resources.
+    for path in sorted(here.glob("*.md")):
+        if not path.name.startswith(".") or path.name == ".agent-handoff.md":
+            yield path, here, "document"
+    yield here / KNOWLEDGE_PATH, here, "document"
+    areas = [(here / "docs", here, "document"),
+             (here / "wiki", here, "document"),
+             (here / ".lattice/spec", here, "document"),
+             (here / ".lattice/intent", here, "document"),
+             (tasks_dir(root), root, "active task; local"),
+             (here / ".lattice/tasks/archive", here, "archive; historical")]
+    ignored = {"node_modules", "vendor", "third_party", "build", "dist", "evidence"}
+    visited = 0
+    for base, allowed, kind in areas:
+        if base.is_symlink():
+            yield base, allowed, kind
+            continue
+        for current, dirs, names in os.walk(base, followlinks=False):
+            visited += 1
+            if visited > SEARCH_FILES:
+                yield None, allowed, kind
+                return
+            parent = Path(current)
+            # Surface skipped links without traversing them.
+            for name in sorted(dirs):
+                if (parent / name).is_symlink():
+                    yield parent / name, allowed, kind
+            dirs[:] = sorted(d for d in dirs if not d.startswith(".")
+                             and d not in ignored and not (parent / d).is_symlink()
+                             and not (parent / d / ".git").exists())
+            for name in sorted(names):
+                if name.endswith(".md") and not name.startswith("."):
+                    yield parent / name, allowed, kind
+
+
+def cmd_find(args) -> int:
+    here = repo_root()
+    root = primary_root(here)
+    query = args.query.casefold().strip()
+    if not query or not 1 <= args.limit <= 50:
+        raise SystemExit("error: provide a nonempty literal query and --limit between 1 and 50")
+    found = scanned = skipped = size = 0
+    stopped = ""
+    for path, allowed, kind in knowledge_files(here, root):
+        if path is None or scanned >= SEARCH_FILES or size >= SEARCH_BYTES:
+            stopped = "scan budget reached"
+            break
+        scanned += 1
+        content = bounded_markdown(path, allowed)
+        if content is None:
+            skipped += 1
+            continue
+        size += len(content.encode("utf-8"))
+        number = next((n for n, line in enumerate(content.splitlines(), 1)
+                       if query in line.casefold()), None)
+        relative = path.relative_to(allowed).as_posix()
+        if number is None and query not in relative.casefold():
+            continue
+        if kind == "document":
+            match = re.match(r"---\s*\n(.*?)\n---(?:\n|$)", content, re.S)
+            declared = yaml_value(match[1], "type") if match else ""
+            if not declared:
+                declared = "contract" if relative.startswith(".lattice/spec/") else \
+                    "intent" if relative.startswith(".lattice/intent/") else ""
+            kind = declared if declared in ("contract", "intent") else "state; reverify" \
+                if declared == "state" else "untyped; reverify"
+        location = str(path) if allowed != here or "active task" in kind else relative
+        # Content can contain secrets. Return locations and trust class only.
+        print(f"{location}:{number or 1} [{kind}]")
+        found += 1
+        if found >= args.limit:
+            stopped = "result limit reached"
+            break
+    print(f"{found} matching files; {scanned} candidates scanned; {skipped} skipped"
+          + (f"; {stopped}" if stopped else ""))
+    print("Discovery only: absence is not proof of missing knowledge. Read the selected sources, "
+          "reverify state, and use targeted repository search if coverage was insufficient.")
+    return 0
+
+
+# ---------- tasks ----------
+
+def cmd_task_new(args) -> int:
+    root = primary_root(repo_root())
+    task_id = datetime.date.today().strftime("%y%m%d") + "-" + slugify(args.title)
+    d = tasks_dir(root) / task_id
+    if d.exists() or any((lat_dir(root) / "tasks/archive").glob(f"*/{task_id}")):
+        raise SystemExit(f"error: task '{task_id}' already exists")
+    d.mkdir(parents=True)
+    meta = {"id": task_id, "title": args.title, "status": "open",
+            "verify": args.verify or "", "created": now_iso()}
+    write_task(d / "task.md", meta, TASK_BODY)
+    problem = verify_issue(args.verify or "")
+    if problem:
+        print(f"warn: {problem}")
+    print(f"created task {task_id}  (branch on claim: task/{task_id})")
+    print(f"next: edit {d / 'task.md'} (Goal/Acceptance/verify), "
+          f"then: lattice task claim {task_id} [--worktree]")
+    return 0
+
+
+def cmd_task_claim(args) -> int:
+    here = repo_root()
+    root = primary_root(here)
+    f, meta, body = find_task(root, args.id)
+    owner = args.owner or default_owner()
+    branch = args.branch or meta.get("branch") or f"task/{meta['id']}"
+    main = default_branch(root)
+    held = {other["branch"]: other["id"] for _, other, _ in iter_tasks(root)
+            if other["id"] != meta["id"] and other["status"] in ("in_progress", "done")
+            and other.get("branch")}
+
+    if branch == main or branch in PROTECTED_BRANCHES:
+        raise SystemExit("error: a task needs its own branch, not the mainline")
+    if not args.worktree and here != root:
+        raise SystemExit("error: plain claim runs in the primary tree; use --worktree for another task")
+    destination = lat_dir(root) / "worktrees" / meta["id"] if args.worktree else root
+    for _, other, _ in iter_tasks(root):
+        if other["id"] != meta["id"] and other["status"] in ("in_progress", "done") \
+                and (root / (other.get("tree") or other.get("worktree") or ".")).resolve() == destination:
+            raise SystemExit(f"error: this tree is held by task {other['id']} — use --worktree or release/archive it first")
+
+    if meta["status"] == "done":
+        raise SystemExit("error: task is done — archive it instead of claiming it")
+    if meta["status"] == "in_progress" and not args.force:
+        raise SystemExit(
+            f"error: already claimed by {meta.get('owner')} at {meta.get('claimed')} "
+            f"— another session may be working on it (--force to take over)")
+    if meta["status"] == "in_progress" and (branch != meta.get("branch") or
+            destination != (root / (meta.get("tree") or meta.get("worktree") or ".")).resolve()):
+        raise SystemExit("error: release the task before moving its claim to another tree or branch")
+    if branch in held:
+        raise SystemExit(
+            f"error: branch '{branch}' is held by in-progress task "
+            f"{held[branch]} — one branch per task")
+
+    # Bind the claim to real git state first; record it only if that succeeds.
+    # A new task branch starts from main, never from whatever another task
+    # happens to have checked out in this tree.
+    new_branch = not branch_exists(root, branch)
+    base = [main] if new_branch and main else []
+    worktree = ""
+    if args.worktree:
+        wt = lat_dir(root) / "worktrees" / meta["id"]
+        if wt.exists():
+            if not args.force:
+                raise SystemExit(
+                    f"error: {wt} already exists — task not claimed "
+                    f"(--force to take it over, or remove it)")
+            print(f"reusing existing worktree {wt}")
+            task_tree(root, {**meta, "tree": str(wt.relative_to(root)), "branch": branch}, here)
+        else:
+            wt.parent.mkdir(parents=True, exist_ok=True)
+            add = ["worktree", "add", "-b", branch, str(wt), *base] if new_branch \
+                else ["worktree", "add", str(wt), branch]
+            rc, _, err = run_git(root, *add)
+            if rc != 0:
+                raise SystemExit(f"error: worktree add failed, task not claimed: {err}")
+        worktree = str(wt.relative_to(root))
+    elif current_branch(here) != branch:
+        on = current_branch(here)
+        if on in held:
+            raise SystemExit(
+                f"error: this tree is on {on}, held by in-progress task "
+                f"{held[on]} — claim with --worktree or finish that task first "
+                f"(task not claimed)")
+        if is_dirty(here):
+            raise SystemExit("error: commit this tree's changes before claiming another branch")
+        switch = ["switch", "-c", branch, *base] if new_branch \
+            else ["switch", branch]
+        rc, _, err = run_git(here, *switch)
+        if rc != 0:
+            raise SystemExit(
+                f"error: could not switch {here.name} to {branch}, task not "
+                f"claimed: {err}")
+        print(f"switched {here.name} to branch {branch}"
+              + (f" (from {main})" if base else ""))
+
+    meta.update(status="in_progress", owner=owner, branch=branch,
+                worktree=worktree, tree=worktree or ".", claimed=now_iso(),
+                verified="", done="")
+    write_task(f, meta, body)
+    print(f"claimed {meta['id']} as {owner} on branch {branch}")
+    if worktree:
+        print(f"worktree ready: {root / worktree}")
+        print("work there; it is removed when this task is archived")
+    return 0
+
+
+def cmd_task_release(args) -> int:
+    """Hand an in-progress task back: status open, owner cleared, a clean
+    worktree removed, the branch kept so the next claim continues on it."""
+    root = primary_root(repo_root())
+    f, meta, body = find_task(root, args.id)
+    if meta["status"] != "in_progress":
+        raise SystemExit(
+            f"error: status is '{meta['status']}' — only an in-progress task "
+            f"can be released")
+    wt_rel = meta.get("worktree", "")
+    wt = root / wt_rel if wt_rel else None
+    if wt and wt.exists():
+        if wt.resolve() != lat_dir(root) / "worktrees" / meta["id"]:
+            raise SystemExit("error: release only removes this task's managed worktree")
+        task_tree(root, meta, root)
+        if Path.cwd().resolve() == wt.resolve() or wt.resolve() in Path.cwd().resolve().parents:
+            raise SystemExit(
+                f"error: you are inside this task's worktree — run release "
+                f"from the primary tree ({root})")
+        if is_dirty(wt):
+            raise SystemExit(
+                f"error: worktree {wt} has uncommitted changes — commit or "
+                f"discard them first (task stays in_progress)")
+        rc, _, err = run_git(root, "worktree", "remove", str(wt))
+        if rc != 0:
+            raise SystemExit(
+                f"error: could not remove worktree ({err}) — task stays in_progress")
+        print(f"removed worktree {wt}")
+    if not wt and current_branch(root) == meta.get("branch") and is_dirty(root):
+        raise SystemExit("error: commit this tree's changes before release")
+    meta.update(status="open", owner="", claimed="", worktree="", tree="",
+                verified="", done="")
+    write_task(f, meta, body)
+    print(f"released {meta['id']} — branch {meta.get('branch') or '-'} kept; "
+          f"the next claim continues on it")
+    return 0
+
+
+def contract_digest(meta: dict, body: str, folder: Path) -> str:
+    fields = {k: meta.get(k, "") for k in ("id", "title", "branch", "tree", "worktree", "verify")}
+    digest = hashlib.sha256((json.dumps(fields, sort_keys=True) + body).encode())
+    outputs = {"task.md", "verification.json", "verification.log", "integration.json", "integration.log"}
+    for path in sorted(folder.rglob("*")):
+        rel = path.relative_to(folder)
+        if rel.parts[0] == "evidence" or rel.as_posix() in outputs or path.name.startswith(".write-"):
+            continue
+        if path.is_symlink():
+            raise SystemExit(f"error: task contract input must be an ordinary file: {path}")
+        if path.is_file():
+            digest.update(rel.as_posix().encode() + b"\0")
+            with path.open("rb") as source:
+                for chunk in iter(lambda: source.read(65536), b""):
+                    digest.update(chunk)
+            digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def snapshot(tree: Path) -> dict:
+    if is_dirty(tree):
+        raise SystemExit(f"error: {tree} has uncommitted changes; commit before verification")
+    rc, sha, _ = run_git(tree, "rev-parse", "HEAD")
+    rc2, git_tree, _ = run_git(tree, "rev-parse", "HEAD^{tree}")
+    branch = current_branch(tree)
+    if rc or rc2 or not branch:
+        raise SystemExit("error: verification requires a committed, attached branch")
+    return {"commit": sha, "git_tree": git_tree, "checkout_branch": branch}
+
+
+def invalidate(f: Path) -> None:
+    meta, body = read_task(f)
+    meta.update(status="in_progress", verified="", done="")
+    write_task(f, meta, body)
+
+
+def verify_tree(f: Path, meta: dict, body: str, tree: Path,
+                name: str, attestation=None) -> dict:
+    before = snapshot(tree)
+    cmd = meta.get("verify", "")
+    if attestation is not None and not attestation.strip():
+        raise SystemExit("error: evidence must describe an actual observation")
+    if attestation is None and not cmd:
+        raise SystemExit("error: set verify or supply --evidence describing what you verified")
+    record = {"schema": 1, "task_id": meta["id"], "task_branch": meta["branch"],
+              "checkout": str(tree), **before, "contract": contract_digest(meta, body, f.parent),
+              "command": cmd, "kind": "attested" if attestation is not None else "command",
+              "attestation": attestation, "started": now_iso(), "status": "running"}
+    target = f.parent / (name + ".json")
+    try:
+        previous = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        previous = {}  # Corrupt old evidence cannot block a fresh attempt.
+    attempts = previous.get("attempt", 0) if isinstance(previous, dict) else 0
+    record["attempt"] = attempts + 1 if isinstance(attempts, int) else 1
+    write_json(target, record)
+    started = time.monotonic()
+    try:
+        if attestation is None:
+            print(f"verify: {cmd}\n(in {tree})", flush=True)
+            log = f.parent / (name + ".log")
+            with log.open("wb") as output:
+                rc = subprocess.run(cmd, shell=True, cwd=str(tree), stdin=subprocess.DEVNULL,
+                                    stdout=output, stderr=subprocess.STDOUT,
+                                    env={**os.environ, "LATTICE_TASK_DIR": str(f.parent)}).returncode
+            with log.open("rb") as output:
+                size = output.seek(0, 2)
+                output.seek(max(0, size - 65536))
+                tail_bytes = output.read()
+                tail = tail_bytes.decode("utf-8", errors="replace")
+            if size > 65536:
+                prefix = b"[Earlier output truncated]\n"
+                with log.open("wb") as output:
+                    output.write(prefix + tail_bytes[-(65536 - len(prefix)):])
+            if tail:
+                print(tail[-6000:], end="" if tail.endswith("\n") else "\n")
+                print(f"verification log: {log}")
+            record["exit_code"] = rc
+            if rc:
+                raise SystemExit(f"error: verify failed (exit {rc}); task is in_progress")
+        else:
+            record["exit_code"] = None
+        if snapshot(tree) != before or contract_digest(*read_task(f), folder=f.parent) != record["contract"]:
+            raise SystemExit("error: code, branch, or task contract changed during verification; run it again")
+        record["status"] = "passed"
+    except BaseException as error:
+        record.update(status="failed", error=str(error))
+        raise
+    finally:
+        record.update(finished=now_iso(), duration_seconds=round(time.monotonic() - started, 3))
+        write_json(target, record)
+    return record
+
+
+def fresh_evidence(root: Path, f: Path, meta: dict, body: str) -> dict:
+    record = read_json(f.parent / "verification.json")
+    rc, sha, _ = run_git(root, "rev-parse", "--verify", "refs/heads/" + meta.get("branch", ""))
+    _, git_tree, _ = run_git(root, "rev-parse", "--verify", "refs/heads/" + meta.get("branch", "") + "^{tree}")
+    expected_tree = str((root / (meta.get("tree") or meta.get("worktree") or ".")).resolve())
+    if not isinstance(record, dict) or record.get("schema") != 1 \
+            or record.get("status") != "passed" or not meta.get("verified") \
+            or record.get("kind") not in ("command", "attested") \
+            or record.get("git_tree") != git_tree \
+            or record.get("checkout_branch") != meta.get("branch") \
+            or record.get("task_id") != meta["id"] \
+            or record.get("task_branch") != meta.get("branch") \
+            or record.get("checkout") != expected_tree \
+            or record.get("contract") != contract_digest(meta, body, f.parent) \
+            or rc or record.get("commit") != sha:
+        raise SystemExit("error: verification is stale or mismatched; restore the task checkout and run task done again")
+    return record
+
+
+def cmd_task_done(args) -> int:
+    here = repo_root()
+    root = primary_root(here)
+    f, meta, body = find_task(root, args.id)
+    if meta["status"] not in ("in_progress", "done"):
+        raise SystemExit("error: task was never claimed — claim it first")
+    # Revoke completion before every attempt, including invalid checkout and
+    # interrupted verification. A success from yesterday cannot survive a failure.
+    invalidate(f)
+    tree = task_tree(root, meta, here)
+    print("Handoff reminder: reconcile remaining work, constraints, changed operational "
+          "prerequisites, and evidence limits; update maintained sources and .lattice/knowledge.md.")
+    with locked(root, "tree:" + str(tree)):
+        record = verify_tree(f, meta, body, tree, "verification", args.evidence)
+    summary = f"{'attested' if args.evidence else 'pass'} {record['finished']} @{record['commit']}"
+    meta.update(status="done", done=now_iso(), verified=summary)
+    write_task(f, meta, body)
+    print(f"done {meta['id']} — {summary}")
+    print(f"next: merge {meta['branch']} into {default_branch(root) or 'main'}, then: lattice task archive {meta['id']}")
+    return 0
+
+
+def cmd_task_list(args) -> int:
+    root = primary_root(repo_root())
+    broken = []
+    rows = [(m["id"], m["status"], m.get("owner", ""), m.get("branch", ""),
+             m.get("title", "")) for _, m, _ in iter_tasks(root, broken)
+            if not args.status or m["status"] == args.status]
+    if not rows:
+        print("no tasks" + (f" with status={args.status}" if args.status else ""))
+    widths = [max(len(r[i]) for r in rows) for i in range(4)] if rows else []
+    for r in rows:
+        print("  ".join(r[i].ljust(widths[i]) for i in range(4)) + "  " + r[4])
+    for problem in broken:
+        print(f"warn: {problem}")
+    return 0
+
+
+ARCHIVE_WARN_BYTES = 256 * 1024
+
+
+def folder_sizes(folder: Path):
+    """Total bytes and the five largest files of an archived task folder."""
+    sizes = [(p.stat().st_size, p.relative_to(folder).as_posix())
+             for p in folder.rglob("*") if p.is_file() and not p.is_symlink()]
+    return sum(size for size, _ in sizes), sorted(sizes, reverse=True)[:5]
+
+
+def cmd_task_archive(args) -> int:
+    root = primary_root(repo_root())
+    f, meta, body = find_task(root, args.id)
+    if meta["status"] != "done":
+        raise SystemExit("error: task must be done before archive")
+    proof = fresh_evidence(root, f, meta, body)
+    main = default_branch(root)
+    branch = meta.get("branch", "")
+    if not main or branch == main or branch in PROTECTED_BRANCHES:
+        raise SystemExit("error: archive requires a separate task branch and an existing mainline")
+    if current_branch(root) != main:
+        raise SystemExit(f"error: switch the primary tree to {main} before archive")
+    if run_git(root, "merge-base", "--is-ancestor", branch, main)[0] != 0:
+        raise SystemExit(f"error: {branch} is not merged into {main}")
+    wt = root / meta["worktree"] if meta.get("worktree") else None
+    if wt:
+        expected = lat_dir(root) / "worktrees" / meta["id"]
+        if wt.resolve() != expected or not wt.is_dir():
+            raise SystemExit("error: recorded worktree is missing or not the task's managed directory")
+        if Path.cwd().resolve() == wt.resolve() or wt.resolve() in Path.cwd().resolve().parents:
+            raise SystemExit("error: run archive from the primary tree")
+        task_tree(root, meta, root)
+        if is_dirty(wt):
+            raise SystemExit("error: task worktree is dirty; commit before archive")
+    dest = lat_dir(root) / "tasks/archive" / datetime.date.today().strftime("%Y-%m") / meta["id"]
+    if dest.exists():
+        raise SystemExit(f"error: archive destination already exists: {dest}")
+    with locked(root, "tree:" + str(root)):
+        merged = snapshot(root)
+        if merged["git_tree"] == proof["git_tree"] and args.evidence is None:
+            integration = {**proof, **merged, "checkout": str(root), "kind": "same-tree",
+                           "reused_task_commit": proof["commit"]}
+            write_json(f.parent / "integration.json", integration)
+        else:
+            if proof["kind"] == "attested" and args.evidence is None:
+                raise SystemExit("error: the merged tree differs from the manually verified tree; verify it and use task archive --evidence")
+            try:
+                verify_tree(f, meta, body, root, "integration", args.evidence)
+            except BaseException:
+                invalidate(f)
+                raise
+        # Verification does not hold the board lock. Recheck before cleanup;
+        # unrelated tasks can progress throughout the potentially long command.
+        with locked(root, "board"):
+            fresh_evidence(root, f, *read_task(f))
+            if snapshot(root) != merged:
+                raise SystemExit("error: mainline changed during archive; retry verification")
+            if wt and is_dirty(wt):
+                raise SystemExit("error: task worktree changed during archive")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if wt:
+                rc, _, err = run_git(root, "worktree", "remove", str(wt))
+                if rc:
+                    raise SystemExit(f"error: could not remove worktree: {err}; task retained")
+                print(f"removed worktree {wt}")
+            rc, _, err = run_git(root, "branch", "-d", branch)
+            if rc:
+                print(f"warn: merged branch kept: {err}")
+            else:
+                print(f"deleted merged branch {branch}")
+            shutil.move(str(f.parent), str(dest))
+            retired = retire_legacy_folder(root, meta["id"])
+    print(f"archived {meta['id']} -> {dest}")
+    if retired:
+        print(retired)
+    total, largest = folder_sizes(dest)
+    if total > ARCHIVE_WARN_BYTES:
+        print(f"warn: task folder is {total // 1024} KiB; evidence should be logs, receipts, "
+              f"digests, and patches — trim copies of other repositories before committing:")
+        for size, rel in largest:
+            print(f"  {size // 1024:>6} KiB  {rel}")
+    print(f"next: commit .lattice/tasks on {main}")
+    print(CONSOLIDATION_CHECKLIST)
+    return 0
+
+
+# ---------- doctor & context ----------
+
+def cmd_doctor(args) -> int:
+    here = repo_root()
+    root = primary_root(here)
+    issues = entrypoint_issues(here) + knowledge_issues(here)
+    broken = []
+    tasks = list(iter_tasks(root, broken))
+    issues.extend(broken)
+
+    head = current_branch(root)
+    main = default_branch(root)
+    branches = {}
+    now = datetime.datetime.now().astimezone()
+    for f, meta, _ in tasks:
+        tid = meta["id"]
+        if tid != f.parent.name:
+            issues.append(f"{f.parent.name}: task id '{tid}' does not match its directory")
+        if meta["status"] not in ("open", "in_progress", "done"):
+            issues.append(f"{tid}: unknown status '{meta['status']}'")
+        if meta["status"] != "done":
+            problem = verify_issue(meta.get("verify", ""))
+            if problem:
+                issues.append(f"{tid}: {problem}")
+        if meta["status"] == "in_progress":
+            b = meta.get("branch", "")
+            wt_rel = meta.get("worktree", "")
+            if not meta.get("owner") or not b:
+                issues.append(f"{tid}: in_progress but missing owner/branch")
+            if b in branches:
+                issues.append(
+                    f"{tid} and {branches[b]}: both in_progress on branch '{b}'")
+            elif b:
+                branches[b] = tid
+            if b and not branch_exists(root, b):
+                issues.append(f"{tid}: claimed branch '{b}' does not exist")
+            if wt_rel and not (root / wt_rel).exists():
+                issues.append(f"{tid}: recorded worktree {wt_rel} is missing")
+            if not wt_rel and b and b != head:
+                issues.append(
+                    f"{tid}: claimed on '{b}' without a worktree, but the "
+                    f"primary tree is on '{head or '?'}' — switch to it or "
+                    f"claim --worktree")
+            claimed = meta.get("claimed", "")
+            if claimed:
+                try:
+                    age = (now - datetime.datetime.fromisoformat(claimed)).days
+                    if age > STALE_CLAIM_DAYS:
+                        issues.append(
+                            f"{tid}: claim is {age} days old "
+                            f"(owner {meta.get('owner')}) — stale? `task release` "
+                            f"it or claim --force")
+                except ValueError:
+                    issues.append(f"{tid}: unparseable claimed timestamp")
+        elif meta["status"] == "done":
+            if not meta.get("verified"):
+                issues.append(f"{tid}: done without a verification record")
+            issues.append(f"{tid}: done but not archived — consolidation pending")
+
+    # Imported legacy folders are provenance until archive; afterwards they only
+    # look like live records. Report them here; archive retires identical ones.
+    for legacy in sorted((lat_dir(root) / "tasks").glob("*/task.md")):
+        tid = legacy.parent.name
+        if tid == "archive":
+            continue
+        archived = archived_task(root, tid)
+        if archived is not None:
+            problem = legacy_folder_issue(legacy.parent, archived)
+            issues.append(f"legacy task folder .lattice/tasks/{tid} is archived — "
+                          + (f"{problem}; reconcile it by hand" if problem
+                             else "remove it (identical copy archived)"))
+        elif not (tasks_dir(root) / tid / "task.md").is_file():
+            issues.append(f"legacy task folder .lattice/tasks/{tid} is not imported — run `lattice init`")
+
+    wt_dir = lat_dir(root) / "worktrees"
+    active = {m["id"] for _, m, _ in tasks if m["status"] in ("in_progress", "done")}
+    if wt_dir.is_dir():
+        for d in wt_dir.iterdir():
+            if d.is_dir() and d.name not in active:
+                issues.append(
+                    f"worktree '{d.name}' has no in-progress task — merge "
+                    f"finished work and remove it")
+
+    # Two live task branches must not share commits that main lacks: that means
+    # one was branched from the other instead of from main.
+    live = [(tid, b) for b, tid in branches.items() if branch_exists(root, b)]
+    for i, (ta, ba) in enumerate(live):
+        for tb, bb in live[i + 1:]:
+            _, fork, _ = run_git(root, "merge-base", ba, bb)
+            if main and fork and run_git(root, "merge-base", "--is-ancestor",
+                                         fork, main)[0] != 0:
+                issues.append(
+                    f"{ta} and {tb}: '{ba}' and '{bb}' share commits that "
+                    f"{main} lacks — one was branched from the other; rebase "
+                    f"it onto {main}")
+
+    for f, meta, body in tasks:
+        if meta["status"] == "done":
+            try:
+                fresh_evidence(root, f, meta, body)
+            except SystemExit as error:
+                issues.append(f"{meta['id']}: {error}")
+
+    if issues:
+        for i in issues:
+            print(f"warn: {i}")
+        return 1
+    print("ok: lattice state is healthy")
+    return 0
+
+
+def cmd_context(args) -> int:
+    here = repo_root()
+    root = primary_root(here)
+    broken = []
+    tasks = list(iter_tasks(root, broken))
+    blocks = [f"# Lattice context — {root.name} (lattice {VERSION})",
+              "Manual: AGENTS.md (loaded natively by Claude Code and Codex; any other agent reads it now)",
+              "Knowledge: .lattice/knowledge.md. Before declaring information missing, use "
+              '`python3 .lattice/lattice find "<term>"` (docs, shared notes, archives; locations only).']
+
+    def section(title, content, budget, pointer):
+        if len(content) > budget:
+            content = content[:budget] + f"\n(... truncated; {pointer})"
+        blocks.append(f"## {title}\n\n{content}")
+
+    current = next(((f, m, body) for f, m, body in tasks
+                    if m["status"] in ("in_progress", "done")
+                    and (root / (m.get("tree") or m.get("worktree") or ".")).resolve() == here
+                    and m.get("branch") == current_branch(here)), None)
+    if current:
+        f, m, body = current
+        attachments = ", ".join(p.name for p in sorted(f.parent.glob("*.md"))[:12]
+                                if p != f and not p.is_symlink())
+        section(f"Current task: {m['id']} — {m.get('title', '')}",
+                f"Status: {m['status']}; verify: {m.get('verify') or '(manual evidence required)'}\n"
+                f"Task file: {f}\n"
+                + (f"Also read in this task folder: {attachments}\n" if attachments else "")
+                + f"\n{body.strip()}", 2400, f"read {f}")
+    elif here != root:
+        blocks.append("This worktree has no matching claimed task; inspect task list before working.")
+
+    knowledge = bounded_markdown(here / KNOWLEDGE_PATH, here, 65536)
+    if knowledge:
+        section("Project knowledge (curated source map)", knowledge, 1500,
+                "read .lattice/knowledge.md")
+
+    warnings = entrypoint_issues(here) + knowledge_issues(here) + broken
+    if warnings:
+        section("Warnings", "\n".join(warnings), 700, "run lattice doctor")
+
+    status = git(here, "status", "--short", "--branch").splitlines()
+    status_text = "\n".join(status[:CONTEXT_STATUS_LINES])
+    if len(status) > CONTEXT_STATUS_LINES:
+        status_text += f"\n(... {len(status) - CONTEXT_STATUS_LINES} more changed paths — run git status)"
+    section("Git", status_text + "\n\n" + git(here, "log", "--oneline", "-6"),
+            1800, "run git status / git log")
+    board = "\n".join(f"- [{m['status']}] {m['id']} (owner: {m.get('owner') or '-'}, "
+                      f"branch: {m.get('branch') or '-'}) {m.get('title', '')} — {f}"
+                      for f, m, _ in tasks) or "(none)"
+    section("Tasks (shared local runtime)", board, 1300, "run lattice task list")
+    for name in ("spec", "intent"):
+        rows = []
+        for f in sorted((lat_dir(here) / name).rglob("*.md")):
+            with f.open(encoding="utf-8") as fh:
+                title = next((ln.lstrip("# ").strip() for ln in fh if ln.startswith("# ")), "")
+            rows.append(f"- {f.relative_to(here)} — {title[:140]}")
+        if rows:
+            section(f"{name}/ index", "\n".join(rows), 750, f"browse .lattice/{name}/")
+    blocks.append("Reminder: verify before trusting any 'done'; runtime is local, contracts and archives belong in git.")
+    output = "\n\n".join(blocks)
+    if len(output) >= CONTEXT_CHARS:
+        output = output[:CONTEXT_CHARS - 85] + "\n(... context budget reached; read the task file and indexes above)"
+    print(output)
+    return 0
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(prog="lattice", description=__doc__)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    pi = sub.add_parser("init", help="scaffold .lattice/ and agent files in this repo")
+    pi.add_argument("--from-openspec", action="store_true",
+                    help="first move an openspec/ tree into .lattice/ (specs, "
+                         "changes, archive, config) and remove OpenSpec tool files")
+    pi.add_argument("--hooks", choices=("project", "user"), help="explicitly select this machine's hook mode")
+    pi.add_argument("--user-dir", help="installed user integration directory (default: ~/.local/share/lattice)")
+    sub.add_parser("context", help="print session-start bundle for a fresh agent")
+    pf = sub.add_parser("find", help="find literal text in project docs, task notes, and archives")
+    pf.add_argument("query")
+    pf.add_argument("--limit", type=int, default=20, help="maximum matching files (1-50)")
+    sub.add_parser("doctor", help="lint lattice state (exit 1 on issues)")
+    hooks = sub.add_parser("hooks", help="explicit user-level integration").add_subparsers(
+        dest="hooks_cmd", required=True)
+    hi = hooks.add_parser("install", help="install a central CLI and merge user SessionStart hooks")
+    hi.add_argument("--user-dir")
+    hi.add_argument("--codex-config", help="override the user Codex hooks.json location")
+    hi.add_argument("--claude-config", help="override the user Claude settings.json location")
+    hs = hooks.add_parser("status", help="inspect installed hooks and enrolled projects")
+    hs.add_argument("--user-dir")
+    hc = hooks.add_parser("context", help="read SessionStart JSON from stdin; run only through the installed entrypoint")
+    hc.add_argument("--agent", choices=tuple(HOOK_FILES), required=True)
+
+    t = sub.add_parser("task", help="task lifecycle").add_subparsers(
+        dest="task_cmd", required=True)
+    tn = t.add_parser("new", help="create a task")
+    tn.add_argument("title")
+    tn.add_argument("--verify", help="shell command that defines done; it runs in the "
+                                     "task checkout with $LATTICE_TASK_DIR set to the task folder")
+    tc = t.add_parser("claim", help="claim a task: switches to its branch or "
+                                    "creates a worktree, then records the claim")
+    tc.add_argument("id")
+    tc.add_argument("--owner", help="defaults to $LATTICE_OWNER, else claude/"
+                                    "codex detected from the environment, else "
+                                    "your username")
+    tc.add_argument("--branch")
+    tc.add_argument("--worktree", action="store_true",
+                    help="create .lattice/worktrees/<id> on the task branch "
+                         "for parallel sessions")
+    tc.add_argument("--force", action="store_true",
+                    help="take over a task another session holds")
+    tr = t.add_parser("release", help="hand an in-progress task back: status "
+                                      "open, clean worktree removed, branch kept")
+    tr.add_argument("id")
+    td = t.add_parser("done", help="run the verify command and record the result")
+    td.add_argument("id")
+    td.add_argument("--evidence", help="single line describing verification "
+                                       "you already ran, instead of running "
+                                       "the verify command")
+    tl = t.add_parser("list", help="list tasks")
+    tl.add_argument("--status")
+    ta = t.add_parser("archive", help="archive a merged, verified, clean task "
+                                      "(prints consolidation)")
+    ta.add_argument("id")
+    ta.add_argument("--evidence", help="manual evidence for a changed merged tree")
+
+    args = p.parse_args()
+    if args.cmd == "hooks":
+        return {"install": cmd_hooks_install, "status": cmd_hooks_status,
+                "context": cmd_hooks_context}[args.hooks_cmd](args)
+    handlers = {
+        ("init", None): cmd_init,
+        ("context", None): cmd_context,
+        ("find", None): cmd_find,
+        ("doctor", None): cmd_doctor,
+        ("task", "new"): cmd_task_new,
+        ("task", "claim"): cmd_task_claim,
+        ("task", "release"): cmd_task_release,
+        ("task", "done"): cmd_task_done,
+        ("task", "list"): cmd_task_list,
+        ("task", "archive"): cmd_task_archive,
+    }
+    handler = handlers[(args.cmd, getattr(args, "task_cmd", None))]
+    root = primary_root(repo_root())
+    runtime_format = runtime_dir(root) / "format"
+    if runtime_format.exists() and runtime_format.read_text().strip() != "1":
+        raise SystemExit("error: unsupported task runtime format; use its matching Lattice version")
+    if args.cmd != "init" and not runtime_format.is_file():
+        if not (lat_dir(root) / "lattice").is_file():
+            raise SystemExit("error: run lattice init in this repository first")
+        with locked(root, "board"):
+            if not runtime_format.exists():
+                migrate_task_state(root, announce=False)
+    if args.cmd != "task" or args.task_cmd == "list":
+        return handler(args)
+    if args.task_cmd == "new":
+        with locked(root, "board"):
+            return handler(args)
+    check_task_id(args.id)
+    with locked(root, "task:" + args.id):
+        if args.task_cmd in ("claim", "release"):
+            with locked(root, "board"):
+                if args.task_cmd == "claim":
+                    tree = lat_dir(root) / "worktrees" / args.id if args.worktree else root
+                else:
+                    _, meta, _ = find_task(root, args.id)
+                    tree = root / (meta.get("tree") or meta.get("worktree") or ".")
+                with locked(root, "tree:" + str(tree.resolve())):
+                    return handler(args)
+        if args.task_cmd == "archive":
+            _, meta, _ = find_task(root, args.id)
+            if meta.get("worktree"):
+                with locked(root, "tree:" + str((root / meta["worktree"]).resolve())):
+                    return handler(args)
+        return handler(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
