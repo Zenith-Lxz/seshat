@@ -1,0 +1,29 @@
+   Compiling markdown v0.1.0 (/Users/liuxianzhao/project/seshat/crates/markdown)
+   Compiling project v0.1.0 (/Users/liuxianzhao/project/seshat/crates/project)
+   Compiling json_schema_store v0.1.0 (/Users/liuxianzhao/project/seshat/crates/json_schema_store)
+   Compiling languages v0.1.0 (/Users/liuxianzhao/project/seshat/crates/languages)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.17s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/markdown.rs (target/debug/deps/markdown-70c8da63b30becb9)
+
+running 1 test
+test tests::test_seshat_select_all_copy ... FAILED
+
+failures:
+
+---- tests::test_seshat_select_all_copy stdout ----
+
+thread 'tests::test_seshat_select_all_copy' (39362896) panicked at crates/markdown/src/markdown.rs:6160:9:
+assertion `left == right` failed
+  left: None
+ right: Some("标题\n粗体 and code 👋🏻\n末段")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::test_seshat_select_all_copy
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 155 filtered out; finished in 0.05s
+
+error: test failed, to rerun pass `-p markdown --lib`

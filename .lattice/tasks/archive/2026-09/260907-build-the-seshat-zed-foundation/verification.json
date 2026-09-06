@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "task_id": "260907-build-the-seshat-zed-foundation",
+  "task_branch": "codex/seshat-zed-foundation",
+  "checkout": "/Users/liuxianzhao/project/seshat",
+  "commit": "8ab8deafd7ffa7dfe428ac2e3643c1bb31201bab",
+  "git_tree": "c7fed77229e17147016074271092530004eb0314",
+  "checkout_branch": "codex/seshat-zed-foundation",
+  "contract": "849e35bc934c272465e6e3510063e49cd7d7059629ddb101476cbf194160d103",
+  "command": "mise exec rust@1.97.1 -- cargo test --locked -p markdown -p release_channel && mise exec rust@1.97.1 -- cargo build --locked --profile release-fast -p zed",
+  "kind": "command",
+  "attestation": null,
+  "started": "2026-09-07T05:40:49+08:00",
+  "status": "passed",
+  "attempt": 2,
+  "exit_code": 0,
+  "finished": "2026-09-07T05:40:52+08:00",
+  "duration_seconds": 2.217
+}

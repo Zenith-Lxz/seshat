@@ -1,0 +1,32 @@
+{
+  "observed_at": "2026-09-06T21:38:30.829888+00:00",
+  "source_commit": "8ab8deafd7ffa7dfe428ac2e3643c1bb31201bab",
+  "native_window_build": "release-fast",
+  "files_restored_or_unchanged": {
+    "daily.txt": true,
+    "writing.md": true,
+    "app.log": true,
+    "archive.LOG.1": true
+  },
+  "fresh_profile_runtime_file_counts": {
+    "node": 0,
+    "prettier": 0,
+    "languages": 0
+  },
+  "zed_settings_unchanged": true,
+  "zed_and_seshat_windows_responded": true,
+  "vim_delete_save_and_undo": true,
+  "markdown_insert_save_preview_copy_and_undo": true,
+  "regular_and_rotated_log_edits_refused": true,
+  "running_bundle_guard_rejected_rebuild": true,
+  "same_build_quit_relaunch": true,
+  "restored_selection": "archive.LOG.1",
+  "restored_tabs": [
+    "daily.txt",
+    "writing.md",
+    "Preview writing.md",
+    "copy-target.txt",
+    "app.log",
+    "archive.LOG.1"
+  ]
+}
