@@ -11,7 +11,7 @@ Seshat is a daily file editor forked from Zed. Read `.rules` for upstream Rust a
 - Keep Seshat app identity, configuration, session databases, logs and updates separate from Zed. Never inherit an upstream updater that can replace Seshat with Zed.
 - Keep source Markdown authoritative. Rendered selection/copy and source editing are separate observable journeys; neither a screenshot nor a parser test proves both.
 - Existing files and dirty buffers must survive external edits, rename and save conflicts. Do not treat Markdown serialization round trips as exact-source preservation without tests.
-- Checks: `cargo build --locked -p zed`, targeted `cargo test --locked -p <crate>`, and `./script/clippy` for Clippy. Local bundle and native-window acceptance remain separate gates.
+- Checks: `cargo build --locked -p zed`, targeted `cargo test --locked -p <crate>`, and `./script/clippy` for Clippy. `script/seshat-bundle` builds a local macOS application with the release-fast profile and ad-hoc signing; run it through the pinned mise runtime. Local bundle and native-window acceptance remain separate gates.
 - Keep upstream licensing and attribution. The application/editor is GPL-3.0-or-later; GPUI's separate Apache license does not relicense the application.
 
 <!-- lattice:protocol:start -->

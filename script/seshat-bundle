@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# A local build must not enter upstream signing, installation or update workflows.
+cargo build --locked --profile release-fast -p zed
+python3 - <<'PYTHON'
+import datetime
+import json
+import os
+import pathlib
+import plistlib
+import shutil
+import subprocess
+import tempfile
+import tomllib
+
+root = pathlib.Path.cwd()
+output = root / "target/seshat-bundle"
+output.mkdir(parents=True, exist_ok=True)
+package = tomllib.loads((root / "crates/zed/Cargo.toml").read_text())["package"]
+channel = (root / "crates/zed/RELEASE_CHANNEL").read_text().strip()
+metadata = package["metadata"]["bundle-" + channel]
+with tempfile.TemporaryDirectory(prefix=".seshat-", dir=output) as staging:
+    app = pathlib.Path(staging) / "Seshat.app"
+    contents = app / "Contents"
+    executable = contents / "MacOS/seshat"
+    executable.parent.mkdir(parents=True)
+    resources = contents / "Resources"
+    resources.mkdir()
+    shutil.copy2(root / "target/release-fast/seshat", executable)
+    subprocess.run(["strip", "-x", str(executable)], check=True)
+    shutil.copy2(root / "crates/zed/resources/Seshat.icns", resources)
+    for name in ("LICENSE-GPL", "LICENSE-APACHE"):
+        shutil.copy2(root / name, resources)
+    info = {
+        "CFBundleName": metadata["name"],
+        "CFBundleDisplayName": metadata["name"],
+        "CFBundleIdentifier": metadata["identifier"],
+        "CFBundleExecutable": "seshat",
+        "CFBundlePackageType": "APPL",
+        "CFBundleIconFile": "Seshat.icns",
+        "CFBundleShortVersionString": package["version"],
+        "CFBundleVersion": package["version"],
+        "LSMinimumSystemVersion": "10.15.7",
+        "NSHighResolutionCapable": True,
+        "CFBundleSupportedPlatforms": ["MacOSX"],
+        "CFBundleDocumentTypes": [{
+            "CFBundleTypeName": "Seshat Text Document",
+            "CFBundleTypeRole": "Editor",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": ["public.folder", "public.text", "public.plain-text"],
+        }],
+        "NSHumanReadableCopyright": "Seshat contributors; based on Zed, Copyright Zed Industries, Inc. GPL-3.0-or-later.",
+    }
+    with (contents / "Info.plist").open("wb") as stream:
+        plistlib.dump(info, stream)
+    subprocess.run(["codesign", "--force", "--sign", "-", str(app)], check=True)
+    subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+    destination = output / "Seshat.app"
+    if destination.exists():
+        previous = output / ("Seshat-previous-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".app")
+        destination.rename(previous)
+    app.rename(destination)
+    receipt = {
+        "built_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "source_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        "source_status": subprocess.check_output(["git", "status", "--short"], text=True),
+        "profile": "release-fast",
+        "bundle": str(destination),
+        "identifier": metadata["identifier"],
+        "version": package["version"],
+        "signing": "local ad-hoc; not notarized",
+        "limits": "Requires local Git for Git features. Native-window acceptance is a separate step.",
+    }
+    (output / "build-receipt.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+    print(destination)
+PYTHON

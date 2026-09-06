@@ -44,10 +44,10 @@ pub static RELEASE_CHANNEL: LazyLock<ReleaseChannel> =
 #[cfg(target_os = "windows")]
 pub fn app_identifier() -> &'static str {
     match *RELEASE_CHANNEL {
-        ReleaseChannel::Dev => "Zed-Editor-Dev",
-        ReleaseChannel::Nightly => "Zed-Editor-Nightly",
-        ReleaseChannel::Preview => "Zed-Editor-Preview",
-        ReleaseChannel::Stable => "Zed-Editor-Stable",
+        ReleaseChannel::Dev => "Seshat-Editor-Dev",
+        ReleaseChannel::Nightly => "Seshat-Editor-Nightly",
+        ReleaseChannel::Preview => "Seshat-Editor-Preview",
+        ReleaseChannel::Stable => "Seshat-Editor-Stable",
     }
 }
 
@@ -199,16 +199,17 @@ impl ReleaseChannel {
 
     /// Returns whether we want to poll for updates for this [`ReleaseChannel`]
     pub fn poll_for_updates(&self) -> bool {
-        !matches!(self, ReleaseChannel::Dev)
+        // Seshat must never install an upstream Zed release over this fork.
+        false
     }
 
     /// Returns the display name for this [`ReleaseChannel`].
     pub fn display_name(&self) -> &'static str {
         match self {
-            ReleaseChannel::Dev => "Zed Dev",
-            ReleaseChannel::Nightly => "Zed Nightly",
-            ReleaseChannel::Preview => "Zed Preview",
-            ReleaseChannel::Stable => "Zed",
+            ReleaseChannel::Dev => "Seshat Dev",
+            ReleaseChannel::Nightly => "Seshat Nightly",
+            ReleaseChannel::Preview => "Seshat Preview",
+            ReleaseChannel::Stable => "Seshat",
         }
     }
 
@@ -227,10 +228,10 @@ impl ReleaseChannel {
     /// This also has to match the bundle identifier for Zed on macOS.
     pub fn app_id(&self) -> &'static str {
         match self {
-            ReleaseChannel::Dev => "dev.zed.Zed-Dev",
-            ReleaseChannel::Nightly => "dev.zed.Zed-Nightly",
-            ReleaseChannel::Preview => "dev.zed.Zed-Preview",
-            ReleaseChannel::Stable => "dev.zed.Zed",
+            ReleaseChannel::Dev => "dev.seshat.editor.dev",
+            ReleaseChannel::Nightly => "dev.seshat.editor.nightly",
+            ReleaseChannel::Preview => "dev.seshat.editor.preview",
+            ReleaseChannel::Stable => "dev.seshat.editor",
         }
     }
 
@@ -283,6 +284,18 @@ impl FromStr for ReleaseChannel {
 #[cfg(test)]
 mod tests {
     use super::ReleaseChannel;
+
+    #[test]
+    fn test_seshat_never_installs_upstream_updates() {
+        for channel in [
+            ReleaseChannel::Dev,
+            ReleaseChannel::Nightly,
+            ReleaseChannel::Preview,
+            ReleaseChannel::Stable,
+        ] {
+            assert!(!channel.poll_for_updates());
+        }
+    }
 
     #[test]
     fn test_docs_url_for_release_channel() {

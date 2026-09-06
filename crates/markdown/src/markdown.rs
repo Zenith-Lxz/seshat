@@ -568,6 +568,8 @@ pub type CodeBlockTransformFn =
 actions!(
     markdown,
     [
+        /// Selects all rendered Markdown text.
+        SelectAll,
         /// Copies the selected text to the clipboard.
         Copy,
         /// Copies the selected text as markdown to the clipboard.
@@ -3249,6 +3251,29 @@ impl Element for MarkdownElement {
         let mut context = KeyContext::default();
         context.add("Markdown");
         window.set_key_context(context);
+        window.on_action(std::any::TypeId::of::<crate::SelectAll>(), {
+            let entity = self.markdown.clone();
+            let end = rendered_markdown
+                .text
+                .lines
+                .last()
+                .map(|line| line.source_end)
+                .unwrap_or(0);
+            move |_, phase, _, cx| {
+                if phase == DispatchPhase::Bubble {
+                    entity.update(cx, |this, cx| {
+                        this.selection = Selection {
+                            start: 0,
+                            end,
+                            reversed: false,
+                            pending: false,
+                            mode: SelectMode::All,
+                        };
+                        cx.notify();
+                    });
+                }
+            }
+        });
         window.on_action(std::any::TypeId::of::<crate::Copy>(), {
             let entity = self.markdown.clone();
             let text = rendered_markdown.text.clone();
@@ -6125,6 +6150,43 @@ mod tests {
         let word_range = rendered.surrounding_word_range(19);
         let selected_text = rendered.text_for_range(word_range);
         assert_eq!(selected_text, "#bar");
+    }
+
+    #[gpui::test]
+    fn test_seshat_select_all_copy(cx: &mut TestAppContext) {
+        ensure_theme_initialized(cx);
+        let source = "# 标题\n\n**粗体** and `code` 👋🏻\n\n末段";
+        let markdown = cx.new(|cx| Markdown::new(source.into(), None, None, cx));
+        let captured_text = Rc::new(RefCell::new(None));
+        cx.update(|cx| {
+            cx.bind_keys([
+                gpui::KeyBinding::new("cmd-a", SelectAll, Some("Markdown")),
+                gpui::KeyBinding::new("cmd-c", Copy, Some("Markdown")),
+            ]);
+        });
+        let (_, cx) = cx.add_window_view({
+            let markdown = markdown.clone();
+            move |_, _| MarkdownTestView {
+                markdown,
+                style: MarkdownStyle::default(),
+                code_span_link: None,
+                rendered_text: captured_text,
+            }
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let focus_handle = markdown.read(cx).focus_handle.clone();
+            window.focus(&focus_handle, cx);
+        });
+        cx.simulate_keystrokes("cmd-a cmd-c");
+        cx.run_until_parked();
+        assert_eq!(
+            cx.read_from_clipboard().and_then(|item| item.text()),
+            Some("标题\n粗体 and code 👋🏻\n末段".to_string())
+        );
+        markdown.read_with(cx, |markdown, _| {
+            assert_eq!(markdown.source.as_ref(), source)
+        });
     }
 
     #[gpui::test]
