@@ -2256,13 +2256,13 @@
       "format_on_save": "off",
       "language_servers": ["astro-language-server", "..."],
       "prettier": {
-        "allowed": true,
+        "allowed": false,
         "plugins": ["prettier-plugin-astro"],
       },
     },
     "Blade": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "C": {
@@ -2282,7 +2282,7 @@
     },
     "CSS": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "Dart": {
@@ -2325,7 +2325,7 @@
     "GraphQL": {
       "format_on_save": "off",
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "HEEx": {
@@ -2334,7 +2334,7 @@
     },
     "HTML": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "HTML+ERB": {
@@ -2342,24 +2342,24 @@
     },
     "Java": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
         "plugins": ["prettier-plugin-java"],
       },
     },
     "JavaScript": {
       "language_servers": ["!typescript-language-server", "vtsls", "..."],
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "JSON": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "JSONC": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "JS+ERB": {
@@ -2373,7 +2373,7 @@
       "formatter": "language_server",
       "language_servers": ["texlab", "..."],
       "prettier": {
-        "allowed": true,
+        "allowed": false,
         "plugins": ["prettier-plugin-latex"],
       },
     },
@@ -2386,13 +2386,13 @@
         "words": "disabled",
       },
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "PHP": {
       "language_servers": ["phpactor", "!intelephense", "!phptools", "!phpantom", "..."],
       "prettier": {
-        "allowed": true,
+        "allowed": false,
         "plugins": ["@prettier/plugin-php"],
         "parser": "php",
       },
@@ -2437,7 +2437,7 @@
     },
     "SCSS": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "Starlark": {
@@ -2447,25 +2447,25 @@
     "Svelte": {
       "language_servers": ["svelte-language-server", "..."],
       "prettier": {
-        "allowed": true,
+        "allowed": false,
         "plugins": ["prettier-plugin-svelte"],
       },
     },
     "TSX": {
       "language_servers": ["!typescript-language-server", "vtsls", "..."],
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "Twig": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "TypeScript": {
       "language_servers": ["!typescript-language-server", "vtsls", "..."],
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "SystemVerilog": {
@@ -2475,18 +2475,18 @@
     "Vue.js": {
       "language_servers": ["vue-language-server", "vtsls", "..."],
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "XML": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
         "plugins": ["@prettier/plugin-xml"],
       },
     },
     "YAML": {
       "prettier": {
-        "allowed": true,
+        "allowed": false,
       },
     },
     "YAML+ERB": {

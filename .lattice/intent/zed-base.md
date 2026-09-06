@@ -18,7 +18,7 @@ Fork: [Zenith-Lxz/seshat](https://github.com/Zenith-Lxz/seshat). Local product b
 | Zed | The best fit for the central text/code editor and Vim experience. An existing native macOS application can be retained. Its broad dependency graph and AI/IDE modules remain a maintenance and binary-size cost even when their entry points are hidden. |
 | [Kate / KTextEditor](https://invent.kde.org/frameworks/ktexteditor) | Mature reusable editor framework, but the product would acquire a Qt/KDE C++ application stack and a different macOS integration path. Prefer it if a reusable cross-platform editor component becomes more important than retaining Zed's interaction. |
 | [Fresh](https://github.com/sinelaw/fresh) | Its terminal-first product and early desktop surface do not provide the mature native-window starting point requested here. |
-| [ColaMD](https://github.com/jiangejunge/ColaMD), [MarkText](https://github.com/marktext/marktext) | Useful Markdown editing references, but a Markdown-oriented application is a weaker base for arbitrary text, code, Vim and large logs. |
+| [ColaMD](https://github.com/marswaveai/colamd), [MarkText](https://github.com/marktext/marktext) | Useful Markdown editing references, but a Markdown-oriented application is a weaker base for arbitrary text, code, Vim and large logs. |
 | [MiaoYan](https://github.com/tw93/MiaoYan), [Yank Note](https://github.com/purocean/yn) | Useful Markdown reading and workbench references. Their current product focus does not replace a general editor foundation. |
 
 ## Boundaries
