@@ -13,6 +13,7 @@ use gpui::{
     Render, SharedString, StyleRefinement, Styled, Subscription, WeakEntity, Window, deferred, div,
     px,
 };
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsStore, TerminalDockPosition};
 use std::sync::Arc;
@@ -1367,6 +1368,14 @@ impl Render for Dock {
                                             .iter()
                                             .enumerate()
                                             .filter(|(_, entry)| entry.panel.enabled(cx))
+                                            .sorted_by_key(|(_, entry)| {
+                                                match entry.panel.persistent_name() {
+                                                    "Project Panel" => 0,
+                                                    "Outline Panel" => 1,
+                                                    "GitPanel" => 2,
+                                                    _ => 3,
+                                                }
+                                            })
                                             .map(|(index, entry)| {
                                                 let label = match entry.panel.persistent_name() {
                                                     "Project Panel" => "文件",

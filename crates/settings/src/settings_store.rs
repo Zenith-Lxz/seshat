@@ -1726,6 +1726,34 @@ mod tests {
     }
 
     #[gpui::test]
+    async fn test_first_preference_write_preserves_default_appearance(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let fs = FakeFs::new(cx.background_executor.clone());
+        fs.create_dir(paths::settings_file().parent().unwrap())
+            .await
+            .unwrap();
+        let before = cx.update(|cx| {
+            let store = SettingsStore::new(cx, &default_settings());
+            let appearance = serde_json::to_value(&store.merged_settings().theme).unwrap();
+            cx.set_global(store);
+            appearance
+        });
+        let result = cx.update(|cx| {
+            cx.global::<SettingsStore>()
+                .update_settings_file_with_completion(fs.clone(), |settings, _| {
+                    settings.vim_mode = Some(false)
+                })
+        });
+        result.await.unwrap().unwrap();
+        cx.update(|cx| {
+            let settings = cx.global::<SettingsStore>().merged_settings();
+            assert_eq!(settings.vim_mode, Some(false));
+            assert_eq!(serde_json::to_value(&settings.theme).unwrap(), before);
+        });
+    }
+
+    #[gpui::test]
     async fn test_update_settings_file_updates_store_before_watcher(cx: &mut gpui::TestAppContext) {
         let fs = FakeFs::new(cx.background_executor.clone());
         fs.create_dir(paths::settings_file().parent().unwrap())

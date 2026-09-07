@@ -938,7 +938,7 @@
     // Whether to show the outline panel button in the status bar
     "button": false,
     // Default width of the outline panel.
-    "default_width": 300,
+    "default_width": 240,
     // Where to dock the outline panel. Can be 'left' or 'right'.
     "dock": "left",
     // Whether to show file icons in the outline panel.

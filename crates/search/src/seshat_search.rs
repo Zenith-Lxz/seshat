@@ -8,7 +8,7 @@ use language::Buffer;
 use project::{Project, search::SearchResult};
 use std::ops::Range;
 use text::{Anchor, Point, ToPoint};
-use ui::{HighlightedLabel, Toggleable, prelude::*};
+use ui::{HighlightedLabel, Toggleable, Tooltip, prelude::*};
 use util::{ResultExt, paths::PathMatcher};
 use workspace::{
     Panel, Workspace,
@@ -375,6 +375,7 @@ impl SeshatSearchPanel {
                         .collect();
                     h_flex()
                         .id(("search-match", index))
+                        .w_full()
                         .h_7()
                         .gap_3()
                         .px_4()
@@ -444,7 +445,22 @@ impl Render for SeshatSearchPanel {
                                     .child(
                                         Icon::new(IconName::MagnifyingGlass).size(IconSize::Small),
                                     )
-                                    .child(self.query_editor.clone()),
+                                    .child(self.query_editor.clone())
+                                    .child(
+                                        IconButton::new("clear-search", IconName::Close)
+                                            .icon_size(IconSize::Small)
+                                            .tooltip(Tooltip::text("清空搜索"))
+                                            .on_click(cx.listener(|panel, _, window, cx| {
+                                                panel.query_editor.update(cx, |editor, cx| {
+                                                    editor.set_text("", window, cx);
+                                                });
+                                                panel.start_search(&menu::Confirm, window, cx);
+                                                panel
+                                                    .query_editor
+                                                    .focus_handle(cx)
+                                                    .focus(window, cx);
+                                            })),
+                                    ),
                             )
                             .child(
                                 Button::new(

@@ -46,4 +46,5 @@ cargo test --locked -p editor read_only
 cargo test --locked -p vim test_undo
 cargo test --locked -p git_ui stag
 cargo test --locked -p search -p project_panel test_seshat
+cargo test --locked -p settings test_first_preference_write
 cargo check --locked -p zed
