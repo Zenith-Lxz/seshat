@@ -14,4 +14,6 @@ type: contract
 
 - [2026-09-07 source removal, simplified UI and native acceptance](../docs/audits/2026-09-07-core-only/README.md)
 
+- [2026-09-07 classic layout, scoped search, Markdown modes and standalone close acceptance](../docs/audits/2026-09-07-classic-workflow/README.md)
+
 Current task and handoff: `python3 .lattice/lattice task list`. Runtime records are local and shared; accepted contracts and archived evidence enter git.

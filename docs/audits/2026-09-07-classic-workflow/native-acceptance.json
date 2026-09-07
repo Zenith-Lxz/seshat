@@ -1,0 +1,80 @@
+{
+  "observed_at": "2026-09-07",
+  "native_core_source": "fe45dcb",
+  "search_scopes": {
+    "current_file": {
+      "matches": 3,
+      "files": 1
+    },
+    "all_files": {
+      "matches": 157,
+      "files": 6
+    },
+    "opened_files": {
+      "matches": 155,
+      "files": 4
+    },
+    "opened_logs": {
+      "matches": 151,
+      "files": 2
+    }
+  },
+  "case_sensitive_and_whole_word": {
+    "matches": 1,
+    "files": 1
+  },
+  "invalid_regex_clears_results": true,
+  "escape_closes_search_without_exiting": true,
+  "result_location": {
+    "text": {
+      "line": 4,
+      "selected_characters": 7
+    },
+    "markdown_from_preview": {
+      "line": 18,
+      "selected_characters": 6
+    }
+  },
+  "standalone_save_discard_cancel": true,
+  "same_basename_root_identity_preserved": true,
+  "markdown_preview_current_unsaved_snapshot": true,
+  "markdown_rendered_copy_and_source_sha_preservation": true,
+  "read_only_log_and_rotated_log_sha_preserved": true,
+  "git_stage_and_unstage_observed_in_native_ui_and_index": true,
+  "final_source_commit": "c2b63dd2ff9d938de7291b32e223c48ceffb0079",
+  "final_native_rechecks": {
+    "two_dirty_buffers_restored": true,
+    "project_and_standalone_trees_restored": true,
+    "restored_close_prompt": true,
+    "qa_drafts_discarded_and_original_files_preserved": true,
+    "first_theme_write_kept_12px_editor_font": true,
+    "first_write_did_not_pin_unselected_font_overrides": true,
+    "sidebar_order_file_outline_git": true,
+    "search_clear_resets_query_and_results": true,
+    "search_full_row_click_opens_source_match": true,
+    "save_from_markdown_preview_writes_source": true,
+    "undo_after_save_from_preview_restores_original_sha": true
+  },
+  "final_fixture_sha256": {
+    "archive.LOG.1": "5043883e7ff2ac1bb69ad9b19ae2a2147bda3bde4e266abda2deeacb29cc6fce",
+    "single.txt": "4ecaa503fd5d605a67adf481f786658a2e6ac39bab75921d3dce59cd653dc2be",
+    "application.log": "800d6e1f866c1460b6a02ae111276f5e3aeac1bce3590770135d71825a61597c",
+    "other/single.txt": "a1782d21482416e62ca63bd61e36cd50f0836187537544f5e22954f62b076774",
+    "project/daily.txt": "48e3724ca143fd2b6d9074a31c97eecbbcc9b905141ed4d4f30c47041372dd22",
+    "project/closed.txt": "43e43b563bb76ff8eb66253261d49ab2a89c4bece8adf2b69c3508ad2326ad62",
+    "project/example.py": "edc03e80d3f69841adaa806ad00c2b6bb248263d6533ebeb52714739927f9919",
+    "project/writing.md": "ae56ca401139028d026fb7f23adcf0b71060e151c12e5256e5a5547eeecad5de"
+  },
+  "automated": {
+    "passed": 275,
+    "failed": 0,
+    "ignored": 1,
+    "cargo_check": "passed",
+    "release_fast_build": "passed"
+  },
+  "limits": [
+    "Local arm64 macOS native acceptance",
+    "Ad-hoc signed, not notarized",
+    "Logs use ordinary read-only buffers; no huge-log benchmark claimed"
+  ]
+}

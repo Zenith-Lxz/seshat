@@ -1,0 +1,153 @@
+   Compiling serde v1.0.228
+   Compiling libc v0.2.186
+   Compiling memchr v2.8.3
+   Compiling hashbrown v0.17.1
+   Compiling rustix v1.1.4
+   Compiling syn v3.0.3
+   Compiling serde_json v1.0.151
+   Compiling cc v1.4.3
+   Compiling parking_lot v0.12.5
+   Compiling tracing-subscriber v0.3.22
+   Compiling kurbo v0.13.1
+   Compiling wasmparser v0.254.0
+   Compiling rustybuzz v0.20.1
+   Compiling image v0.25.10
+   Compiling taffy v0.13.0
+   Compiling aho-corasick v1.1.3
+   Compiling indexmap v2.14.0
+   Compiling wasmtime-internal-core v48.0.1
+   Compiling bstr v1.12.1
+   Compiling collections v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/collections)
+   Compiling cranelift-bitset v0.135.1
+   Compiling regex-automata v0.4.14
+   Compiling gimli v0.33.0
+   Compiling regalloc2 v0.15.2
+   Compiling zlog v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/zlog)
+   Compiling cranelift-entity v0.135.1
+   Compiling cranelift-bforest v0.135.1
+   Compiling pulley-interpreter v48.0.1
+   Compiling serde_fmt v1.0.3
+   Compiling schemars v1.0.4
+   Compiling nom v7.1.3
+   Compiling value-bag-serde1 v1.12.0
+   Compiling ztracing v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/ztracing)
+   Compiling value-bag v1.12.0
+   Compiling serde_json_lenient v0.2.4
+   Compiling sum_tree v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/sum_tree)
+   Compiling log v0.4.29
+   Compiling cpufeatures v0.2.17
+   Compiling regex v1.12.3
+   Compiling sha2 v0.10.9
+   Compiling gpui_util v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/gpui_util)
+   Compiling globset v0.4.17
+   Compiling errno v0.3.14
+   Compiling cexpr v0.6.0
+   Compiling clang-sys v1.8.1
+   Compiling wasmprinter v0.254.0
+   Compiling perf v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/tooling/perf)
+   Compiling object v0.39.1
+   Compiling rust-embed-utils v8.11.0
+   Compiling svgtypes v0.16.1
+   Compiling polling v3.11.0
+   Compiling tempfile v3.23.0
+   Compiling rust-embed-impl v8.11.0
+   Compiling rustix v0.38.44
+   Compiling async-io v2.6.0
+   Compiling cranelift-codegen-meta v0.135.1
+   Compiling util_macros v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/util_macros)
+   Compiling bindgen v0.71.1
+   Compiling rusty-fork v0.3.1
+   Compiling usvg v0.46.0
+   Compiling gpui_shared_string v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/gpui_shared_string)
+   Compiling async-signal v0.2.13
+   Compiling async-net v2.0.0
+   Compiling rust-embed v8.11.0
+   Compiling async-process v2.5.0 (https://github.com/zed-industries/async-process.git?rev=0b6d6713570af61806e1e5cb40e0f757cb93fd9d#0b6d6713)
+   Compiling postage v0.5.0
+   Compiling proptest v1.10.0 (https://github.com/proptest-rs/proptest?rev=3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b#3dca198a)
+   Compiling smol v2.0.2
+   Compiling which v4.4.2
+   Compiling wasmtime v48.0.1
+   Compiling wasmtime-environ v48.0.1
+   Compiling resvg v0.46.0
+   Compiling scheduler v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/scheduler)
+   Compiling prost-build v0.9.0
+   Compiling getrandom v0.3.4
+   Compiling wasmtime-internal-jit-icache-coherence v48.0.1
+   Compiling tree-sitter v0.27.0 (https://github.com/tree-sitter/tree-sitter?rev=43623ec9bf0eaaf7113285c46e8a09018f181b18#43623ec9)
+   Compiling tree-sitter-json v0.24.8
+   Compiling net v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/net)
+   Compiling async-global-executor v2.4.1
+   Compiling cloud_llm_client v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/cloud_llm_client)
+   Compiling clock v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/clock)
+   Compiling objc2-core-foundation v0.3.2
+   Compiling cranelift-codegen v0.135.1
+   Compiling async-std v1.13.2
+   Compiling objc2-foundation v0.3.2
+   Compiling xattr v1.6.1
+   Compiling telemetry_events v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/telemetry_events)
+   Compiling objc2-core-services v0.3.2
+   Compiling ignore v0.4.24
+   Compiling notify-types v2.1.0 (https://github.com/zed-industries/notify?rev=0890bbb8ca40a4b5d1f67031698dd7918b37d991#0890bbb8)
+   Compiling telemetry v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/telemetry)
+   Compiling notify v9.0.0-rc.4 (https://github.com/zed-industries/notify?rev=0890bbb8ca40a4b5d1f67031698dd7918b37d991#0890bbb8)
+   Compiling async-tar v0.6.1 (https://github.com/zed-industries/async-tar?rev=bd3ad6f89df9a9da7a8535958756d6bf465936a0#bd3ad6f8)
+   Compiling trash v5.2.5 (https://github.com/zed-industries/trash-rs?rev=41c6c800d884a89351f3b8856d12894cccee261d#41c6c800)
+   Compiling proto v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/proto)
+   Compiling gpui v0.2.2 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/gpui)
+   Compiling zerovec-derive v0.11.5
+   Compiling zerovec v0.11.8
+   Compiling tinystr v0.8.4
+   Compiling potential_utf v0.1.3
+   Compiling icu_collections v2.3.0
+   Compiling icu_locale_core v2.3.0
+   Compiling icu_provider v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling idna_adapter v1.2.1
+   Compiling idna v1.1.0
+   Compiling url v2.5.7
+   Compiling util v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/util)
+   Compiling http_client v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/http_client)
+   Compiling language_model_core v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/language_model_core)
+   Compiling rope v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/rope)
+   Compiling paths v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/paths)
+   Compiling text v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/text)
+   Compiling askpass v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/askpass)
+   Compiling release_channel v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/release_channel)
+   Compiling cranelift-frontend v0.135.1
+   Compiling wasmtime-internal-unwinder v48.0.1
+   Compiling cranelift-native v0.135.1
+   Compiling git v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/git)
+   Compiling wasmtime-internal-cranelift v48.0.1
+   Compiling fs v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/fs)
+   Compiling wasmtime-c-api-impl v48.0.1
+   Compiling settings_json v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/settings_json)
+   Compiling settings_content v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/settings_content)
+   Compiling migrator v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/migrator)
+   Compiling settings v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/settings)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 43.64s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/settings.rs (/Users/liuxianzhao/project/seshat/target/debug/deps/settings-6198390adf1acad4)
+
+running 1 test
+test settings_store::tests::test_first_preference_write_preserves_default_appearance ... FAILED
+
+failures:
+
+---- settings_store::tests::test_first_preference_write_preserves_default_appearance stdout ----
+
+thread 'settings_store::tests::test_first_preference_write_preserves_default_appearance' (40777518) panicked at crates/settings/src/settings_store.rs:1752:13:
+assertion `left == right` failed
+  left: Object {"ui_font_size": Number(16.0), "ui_font_family": String(".SystemUIFont"), "ui_font_features": Object {"calt": Number(0)}, "ui_font_weight": Number(400.0), "buffer_font_family": String("Menlo"), "buffer_font_size": Number(15.0), "buffer_font_weight": Number(400.0), "buffer_line_height": String("standard"), "buffer_font_features": Object {}, "agent_buffer_font_size": Number(12.0), "git_commit_buffer_font_size": Number(12.0), "theme": Object {"mode": String("system"), "light": String("One Light"), "dark": String("One Dark")}, "icon_theme": String("Zed (Default)"), "unnecessary_code_fade": Number(0.3), "theme_overrides": Object {}}
+ right: Object {"ui_font_size": Number(14.0), "ui_font_family": String(".SystemUIFont"), "ui_font_features": Object {"calt": Number(0)}, "ui_font_weight": Number(400.0), "buffer_font_family": String("Menlo"), "buffer_font_size": Number(12.0), "buffer_font_weight": Number(400.0), "buffer_line_height": String("standard"), "buffer_font_features": Object {}, "agent_buffer_font_size": Number(12.0), "git_commit_buffer_font_size": Number(12.0), "theme": Object {"mode": String("system"), "light": String("Seshat Light"), "dark": String("Seshat Dark")}, "icon_theme": String("Zed (Default)"), "unnecessary_code_fade": Number(0.3), "theme_overrides": Object {}}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    settings_store::tests::test_first_preference_write_preserves_default_appearance
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p settings --lib`

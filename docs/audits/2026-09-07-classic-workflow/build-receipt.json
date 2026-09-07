@@ -1,0 +1,14 @@
+{
+  "built_at": "2026-09-07T04:47:22.263178+00:00",
+  "source_commit": "c2b63dd2ff9d938de7291b32e223c48ceffb0079",
+  "source_status": "",
+  "profile": "release-fast",
+  "bundle": "/Users/liuxianzhao/project/seshat/target/seshat-bundle/Seshat.app",
+  "identifier": "dev.seshat.editor",
+  "version": "1.18.1",
+  "signing": "local ad-hoc; not notarized",
+  "limits": "Requires local Git for Git features. Native-window acceptance is a separate step.",
+  "binary_sha256": "bf43bf79d126f9f86fca5501d77659c3e903cc0b65e4a026524d013e2c6f551a",
+  "bundle_bytes": 184861365,
+  "native_acceptance": "native-acceptance.json"
+}

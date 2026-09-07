@@ -1,0 +1,29 @@
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `search` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.46s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/search.rs (/Users/liuxianzhao/project/seshat/target/debug/deps/search-df0fc7119324a40d)
+
+running 2 tests
+test seshat_search::tests::test_seshat_search_log_names_include_rotated_logs ... ok
+test seshat_search::tests::test_seshat_search_scopes_use_open_items_and_unsaved_text ... FAILED
+
+failures:
+
+---- seshat_search::tests::test_seshat_search_scopes_use_open_items_and_unsaved_text stdout ----
+
+thread 'seshat_search::tests::test_seshat_search_scopes_use_open_items_and_unsaved_text' (40742310) panicked at crates/gpui/src/app/entity_map.rs:142:36:
+cannot update search::seshat_search::SeshatSearchPanel while it is already being updated
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    seshat_search::tests::test_seshat_search_scopes_use_open_items_and_unsaved_text
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 55 filtered out; finished in 0.47s
+
+error: test failed, to rerun pass `-p search --lib`

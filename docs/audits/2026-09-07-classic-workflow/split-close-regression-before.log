@@ -1,0 +1,37 @@
+   Compiling search v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/search)
+   Compiling project_panel v0.1.0 (/Users/liuxianzhao/project/seshat/.lattice/worktrees/260907-restore-seshat-layout-search-modes-and-s/crates/project_panel)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `search` (lib test) generated 1 warning
+warning: `project_panel` (lib test) generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.05s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/project_panel.rs (/Users/liuxianzhao/project/seshat/target/debug/deps/project_panel-e0c1cf488fddecbf)
+
+running 1 test
+test project_panel_tests::test_seshat_standalone_close_keeps_cancelled_buffer_and_never_deletes_file ... FAILED
+
+failures:
+
+---- project_panel_tests::test_seshat_standalone_close_keeps_cancelled_buffer_and_never_deletes_file stdout ----
+
+thread 'project_panel_tests::test_seshat_standalone_close_keeps_cancelled_buffer_and_never_deletes_file' (40741060) panicked at crates/project_panel/src/project_panel_tests.rs:11693:45:
+assertion failed: `(left == right)`
+
+[1mDiff[0m [31m< left[0m / [32mright >[0m :
+[31m<[0m[1;48;5;52;31m1[0m
+[32m>[0m[1;48;5;22;32m2[0m
+
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    project_panel_tests::test_seshat_standalone_close_keeps_cancelled_buffer_and_never_deletes_file
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.33s
+
+error: test failed, to rerun pass `-p project_panel --lib`

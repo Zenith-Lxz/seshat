@@ -1,0 +1,13 @@
+Seshat 日常编辑
+mode-check This is rendered text for selection and copy.
+Search and save
+The source stays exact, including  two spaces.
+Keep editing state
+Keep original source
+Mode
+Purpose
+编辑
+Write Markdown
+预览
+Read and copy
+print("needle")
