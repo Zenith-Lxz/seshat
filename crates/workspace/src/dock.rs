@@ -1371,7 +1371,7 @@ impl Render for Dock {
                                                 let label = match entry.panel.persistent_name() {
                                                     "Project Panel" => "文件",
                                                     "Outline Panel" => "大纲",
-                                                    "Git Panel" => "Git",
+                                                    "GitPanel" => "Git",
                                                     other => other,
                                                 };
                                                 Button::new(("sidebar-mode", index), label)

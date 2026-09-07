@@ -142,6 +142,7 @@ pub struct ProjectPanel {
     focus_handle: FocusHandle,
     scroll_handle: UniformListScrollHandle,
     standalone_scroll_handle: UniformListScrollHandle,
+    closing_standalone_files: HashSet<WorktreeId>,
     // An update loop that keeps incrementing/decrementing scroll offset while there is a dragged entry that's
     // hovered over the start/end of a list.
     hover_scroll_task: Option<Task<()>>,
@@ -867,6 +868,7 @@ impl ProjectPanel {
                 diagnostic_summary_update: Task::ready(()),
                 scroll_handle,
                 standalone_scroll_handle: UniformListScrollHandle::new(),
+                closing_standalone_files: HashSet::default(),
                 mouse_down: false,
                 hover_expand_task: None,
                 previous_drag_position: None,
@@ -3921,67 +3923,107 @@ impl ProjectPanel {
             worktree_id,
             path: root.path.clone(),
         };
+        if !self.closing_standalone_files.insert(worktree_id) {
+            return Task::ready(Ok(()));
+        }
+        cx.notify();
         let workspace = self.workspace.clone();
+        let project = self.project.clone();
         cx.spawn_in(window, async move |panel, cx| {
-            let panes = workspace.read_with(cx, |workspace, _| workspace.panes().to_vec())?;
-            for pane in panes {
-                let close = pane.update_in(cx, |pane, window, cx| {
-                    let ids = pane
-                        .items()
-                        .filter(|item| {
+            let result: anyhow::Result<()> = async {
+                let panes = workspace.read_with(cx, |workspace, _| workspace.panes().to_vec())?;
+                // Ask before removing any split, so Cancel leaves every view in place.
+                for pane in &panes {
+                    let items = pane.read_with(cx, |pane, cx| {
+                        pane.items()
+                            .filter(|item| {
+                                item.project_path(cx).as_ref() == Some(&project_path)
+                                    && (item.is_dirty(cx) || item.has_conflict(cx))
+                            })
+                            .map(|item| item.boxed_clone())
+                            .collect::<Vec<_>>()
+                    });
+                    for item in items {
+                        if !workspace::Pane::save_item(
+                            project.clone(),
+                            pane.clone(),
+                            item.as_ref(),
+                            workspace::SaveIntent::Close,
+                            cx,
+                        )
+                        .await?
+                        {
+                            return Ok(());
+                        }
+                    }
+                }
+                for pane in panes {
+                    let close = pane.update_in(cx, |pane, window, cx| {
+                        let ids = pane
+                            .items()
+                            .filter(|item| {
+                                item.project_path(cx).as_ref() == Some(&project_path)
+                                    || item.act_as::<Editor>(cx).is_some_and(|editor| {
+                                        editor.project_path(cx).as_ref() == Some(&project_path)
+                                    })
+                            })
+                            .map(|item| item.item_id())
+                            .collect::<Vec<_>>();
+                        pane.close_items(window, cx, workspace::SaveIntent::Close, &|id| {
+                            ids.contains(&id)
+                        })
+                    })?;
+                    close.await?;
+                    let cancelled = pane.read_with(cx, |pane, cx| {
+                        pane.items().any(|item| {
                             item.project_path(cx).as_ref() == Some(&project_path)
                                 || item.act_as::<Editor>(cx).is_some_and(|editor| {
                                     editor.project_path(cx).as_ref() == Some(&project_path)
                                 })
                         })
-                        .map(|item| item.item_id())
-                        .collect::<Vec<_>>();
-                    pane.close_items(window, cx, workspace::SaveIntent::Close, &|id| {
-                        ids.contains(&id)
-                    })
-                })?;
-                close.await?;
-                let cancelled = pane.read_with(cx, |pane, cx| {
-                    pane.items().any(|item| {
+                    });
+                    if cancelled {
+                        return Ok(());
+                    }
+                }
+                let still_open = workspace.read_with(cx, |workspace, cx| {
+                    workspace.items(cx).any(|item| {
                         item.project_path(cx).as_ref() == Some(&project_path)
                             || item.act_as::<Editor>(cx).is_some_and(|editor| {
                                 editor.project_path(cx).as_ref() == Some(&project_path)
                             })
                     })
-                });
-                if cancelled {
+                })?;
+                if still_open {
                     return Ok(());
                 }
-            }
-            let still_open = workspace.read_with(cx, |workspace, cx| {
-                workspace.items(cx).any(|item| {
-                    item.project_path(cx).as_ref() == Some(&project_path)
-                        || item.act_as::<Editor>(cx).is_some_and(|editor| {
-                            editor.project_path(cx).as_ref() == Some(&project_path)
-                        })
-                })
-            })?;
-            if still_open {
-                return Ok(());
-            }
-            panel.update(cx, |panel, cx| {
-                if panel
-                    .project
-                    .read(cx)
-                    .worktree_for_id(worktree_id, cx)
-                    .as_ref()
-                    == Some(&tree)
-                    && tree
-                        .read(cx)
-                        .root_entry()
-                        .is_some_and(|entry| entry.is_file())
-                {
-                    panel
+                panel.update(cx, |panel, cx| {
+                    if panel
                         .project
-                        .update(cx, |project, cx| project.remove_worktree(worktree_id, cx));
-                }
-            })?;
-            Ok(())
+                        .read(cx)
+                        .worktree_for_id(worktree_id, cx)
+                        .as_ref()
+                        == Some(&tree)
+                        && tree
+                            .read(cx)
+                            .root_entry()
+                            .is_some_and(|entry| entry.is_file())
+                    {
+                        panel
+                            .project
+                            .update(cx, |project, cx| project.remove_worktree(worktree_id, cx));
+                    }
+                })?;
+                Ok(())
+            }
+            .await;
+            panel
+                .update(cx, |panel, cx| {
+                    panel.closing_standalone_files.remove(&worktree_id);
+                    cx.notify();
+                })
+                .log_err();
+            result
         })
     }
 
@@ -6489,7 +6531,9 @@ impl ProjectPanel {
                             })
                             .unwrap_or_default();
                         v_flex()
+                            .flex_1()
                             .min_w_0()
+                            .overflow_hidden()
                             .py_1()
                             .child(
                                 Label::new(file_name)
@@ -6498,7 +6542,7 @@ impl ProjectPanel {
                             )
                             .child(
                                 Label::new(parent)
-                                    .single_line()
+                                    .truncate_start()
                                     .size(LabelSize::XSmall)
                                     .color(Color::Muted),
                             )
@@ -6545,6 +6589,7 @@ impl ProjectPanel {
                                 IconName::Close,
                             )
                             .icon_size(IconSize::Small)
+                            .disabled(self.closing_standalone_files.contains(&worktree_id))
                             .tooltip(Tooltip::text("关闭文件"))
                             .on_click(cx.listener(
                                 move |panel, _, window, cx| {
@@ -6571,7 +6616,7 @@ impl ProjectPanel {
                             this.deploy_context_menu(event.position, entry_id, window, cx);
                         },
                     ))
-                    .overflow_x(),
+                    .when(!standalone_file, |row| row.overflow_x()),
             )
             .when_some(validation_color_and_message, |this, (color, message)| {
                 this.relative().child(deferred(
@@ -7663,6 +7708,9 @@ impl Render for ProjectPanel {
                                     }),
                                 )
                                 .with_sizing_behavior(ListSizingBehavior::Infer)
+                                .with_horizontal_sizing_behavior(
+                                    ListHorizontalSizingBehavior::FitList,
+                                )
                                 .when(item_count > 0, |list| list.max_h(px(280.)))
                                 .track_scroll(&self.standalone_scroll_handle),
                             )

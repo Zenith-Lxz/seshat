@@ -11669,6 +11669,17 @@ async fn test_seshat_standalone_close_keeps_cancelled_buffer_and_never_deletes_f
         assert_eq!(panel.state.visible_entries[1].worktree_id, standalone_id);
         assert_eq!(panel.project_entry_count(), 2);
     });
+    workspace
+        .update_in(cx, |workspace, window, cx| {
+            workspace.split_and_clone(
+                workspace.active_pane().clone(),
+                workspace::SplitDirection::Right,
+                window,
+                cx,
+            )
+        })
+        .await
+        .unwrap();
     editor.update_in(cx, |editor, window, cx| {
         editor.set_text("unsaved", window, cx)
     });
@@ -11677,8 +11688,17 @@ async fn test_seshat_standalone_close_keeps_cancelled_buffer_and_never_deletes_f
     });
     cx.run_until_parked();
     assert!(cx.has_pending_prompt());
+    panel
+        .update_in(cx, |panel, window, cx| {
+            panel.close_standalone_file(standalone_id, window, cx)
+        })
+        .await
+        .unwrap();
     cx.simulate_prompt_answer("Cancel");
     close.await.unwrap();
+    workspace.read_with(cx, |workspace, cx| {
+        assert_eq!(workspace.items(cx).count(), 2)
+    });
     assert!(project.read_with(cx, |project, cx| {
         project.worktree_for_id(standalone_id, cx).is_some()
     }));

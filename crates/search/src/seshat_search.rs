@@ -168,14 +168,17 @@ impl SeshatSearchPanel {
     }
 
     fn dismiss(&mut self, _: &menu::Cancel, window: &mut Window, cx: &mut Context<Self>) {
-        self.workspace
-            .update(cx, |workspace, cx| {
-                workspace.close_panel::<Self>(window, cx);
-                if let Some(item) = workspace.active_item(cx) {
-                    item.item_focus_handle(cx).focus(window, cx);
-                }
-            })
-            .log_err();
+        let workspace = self.workspace.clone();
+        window.defer(cx, move |window, cx| {
+            workspace
+                .update(cx, |workspace, cx| {
+                    workspace.close_panel::<Self>(window, cx);
+                    if let Some(item) = workspace.active_item(cx) {
+                        item.item_focus_handle(cx).focus(window, cx);
+                    }
+                })
+                .log_err();
+        });
     }
 
     fn buffers_for_scope(&self, cx: &App) -> Option<Vec<Entity<Buffer>>> {
@@ -716,5 +719,11 @@ mod tests {
             assert!(panel.groups.is_empty());
             assert!(!panel.searching);
         });
+        cx.dispatch_action(menu::Cancel);
+        cx.run_until_parked();
+        workspace.read_with(cx, |workspace, cx| {
+            assert!(!workspace.bottom_dock().read(cx).is_open());
+        });
+        cx.update(|window, cx| assert!(editor.focus_handle(cx).is_focused(window)));
     }
 }
