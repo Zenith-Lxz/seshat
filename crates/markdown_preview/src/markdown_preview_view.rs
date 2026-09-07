@@ -1491,8 +1491,8 @@ fn resolve_project_path_for_preview_image(
 }
 
 impl Focusable for MarkdownPreviewView {
-    fn focus_handle(&self, _: &App) -> FocusHandle {
-        self.focus_handle.clone()
+    fn focus_handle(&self, cx: &App) -> FocusHandle {
+        self.markdown.read(cx).focus_handle(cx)
     }
 }
 
@@ -1649,7 +1649,7 @@ impl Render for MarkdownPreviewView {
             .image_cache(self.image_cache.clone())
             .id("MarkdownPreview")
             .key_context("MarkdownPreview")
-            .track_focus(&self.focus_handle(cx))
+            .track_focus(&self.focus_handle)
             .on_hover(cx.listener(|view, hovered, _window, cx| {
                 if !hovered && view.hovered_url.take().is_some() {
                     cx.notify();
@@ -2113,6 +2113,29 @@ mod tests {
     };
 
     use super::{MarkdownPreviewView, filter_non_rendered_matches, open_preview_url};
+
+    #[gpui::test]
+    async fn opening_preview_allows_copy_without_clicking_body(cx: &mut TestAppContext) {
+        let source = "# 标题\n\n**粗体** and `code`\n\n末段\n";
+        let (window, editor) = open_markdown_file(cx, "note.md", source).await;
+        cx.update(|cx| {
+            cx.bind_keys([
+                gpui::KeyBinding::new("cmd-a", markdown::SelectAll, Some("Markdown")),
+                gpui::KeyBinding::new("cmd-c", markdown::Copy, Some("Markdown")),
+            ]);
+        });
+        open_preview_for_active_editor(cx, &window);
+        cx.run_until_parked();
+        cx.simulate_keystrokes(window.into(), "cmd-a cmd-c");
+        assert_eq!(
+            cx.read_from_clipboard().and_then(|item| item.text()),
+            Some("标题\n粗体 and code\n末段".to_string())
+        );
+        assert_eq!(
+            editor.read_with(cx, |editor, cx| editor.buffer().read(cx).read(cx).text()),
+            source
+        );
+    }
 
     #[test]
     fn filters_matches_in_non_rendered_link_source() {
@@ -3095,7 +3118,6 @@ mod tests {
             .update(cx, |multi_workspace, window, cx| {
                 let workspace = multi_workspace.workspace().clone();
                 workspace.update(cx, |workspace, cx| {
-                    workspace.set_random_database_id();
                     let workspace_id = workspace.database_id().unwrap();
                     let project = workspace.project().clone();
                     let editor: Entity<Editor> = workspace
@@ -3246,7 +3268,6 @@ mod tests {
         let (preview, workspace_id) = multi_workspace
             .update(cx, |multi_workspace, window, cx| {
                 multi_workspace.workspace().update(cx, |workspace, cx| {
-                    workspace.set_random_database_id();
                     let workspace_id = workspace.database_id().unwrap();
                     let preview = MarkdownPreviewView::create_following_markdown_view(
                         workspace, editor_a, window, cx,
@@ -3655,6 +3676,9 @@ mod tests {
 
     fn init_test(cx: &mut TestAppContext) -> Arc<AppState> {
         cx.update(|cx| {
+            // Preview session tests use the same fixture paths in parallel.
+            // Give each app its own database so workspace cleanup stays local.
+            cx.set_global(db::AppDatabase::test_new());
             let state = AppState::test(cx);
             editor::init(cx);
             crate::init(cx);

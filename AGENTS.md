@@ -6,12 +6,12 @@ type: contract
 Seshat is a daily file editor forked from Zed. Read `.rules` for upstream Rust and GPUI coding instructions; preserve that upstream source. The owner explicitly selected an existing editor base instead of continuing the Swift implementation in `../seshat-reader`.
 
 - Rust/Cargo and the pinned `rust-toolchain.toml` are this repository's build contract. Use the installed mise runtime matching that file. The Swift-only rules in the older repository do not apply here.
-- Preserve upstream editor, buffer, undo, Vim, search and Git implementations. Prefer small, traceable patches over broad source deletion or renaming internal Rust crates.
+- Preserve upstream editor, buffer, undo, Vim, search and Git implementations. The owner authorized removal of unused workbench implementations. Remove their application integration and unreachable source crates together; preserve shared editor abstractions and avoid renaming internal Rust crates.
 - Product scope: directly edit ordinary local text and code; offer Markdown writing/reading and read-only logs. No code graph, AI assistant or IDE workbench is required.
 - Keep Seshat app identity, configuration, session databases, logs and updates separate from Zed. Never inherit an upstream updater that can replace Seshat with Zed.
 - Keep source Markdown authoritative. Rendered selection/copy and source editing are separate observable journeys; neither a screenshot nor a parser test proves both.
 - Existing files and dirty buffers must survive external edits, rename and save conflicts. Do not treat Markdown serialization round trips as exact-source preservation without tests.
-- Checks: `cargo build --locked -p zed`, targeted `cargo test --locked -p <crate>`, and `./script/clippy` for Clippy. `script/seshat-bundle` builds a local macOS application with the release-fast profile and ad-hoc signing; run it through the pinned mise runtime. Local bundle and native-window acceptance remain separate gates.
+- Checks: `script/seshat-verify` checks the application boundary and targeted regressions. `cargo check --locked -p zed`, `cargo build --locked -p zed`, targeted `cargo test --locked -p <crate>`, and `./script/clippy` for Clippy. `script/seshat-bundle` builds a local macOS application with the release-fast profile and ad-hoc signing; run it through the pinned mise runtime. Local bundle and native-window acceptance remain separate gates.
 - Keep upstream licensing and attribution. The application/editor is GPL-3.0-or-later; GPUI's separate Apache license does not relicense the application.
 
 <!-- lattice:protocol:start -->

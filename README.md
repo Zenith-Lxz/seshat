@@ -3,57 +3,32 @@
 
 # Seshat
 
-A daily file editor built on Zed. The fork starts from upstream `v1.18.1` (`bebe92f469834a287f5a57ed78e8d51a918b8ada`). It keeps the mature editing core and adds a focused local-file, Markdown and read-only log workflow.
+A focused macOS editor for local files, built on Zed's editor and GPUI. Open a folder, edit text or Markdown, browse logs, and use Git when needed.
 
-Upstream source is retained below. Fork contracts and current work are indexed in [the project knowledge map](.lattice/knowledge.md). The original Swift application remains in the separate `seshat-reader` repository.
+- Fast text editing with syntax colors, tabs, splits, search, undo and Vim.
+- Markdown source editing and a readable preview with rendered-text selection and copy.
+- Read-only `.log` files and numeric rotated logs by default.
+- File tree, outline, local project search, and optional Git changes/history/commits.
+- Quiet light and dark themes, with a small settings panel for appearance, text size, Vim, line wrapping and Git.
 
----
+AI providers and agents, collaboration UI, remote workspaces, containers, integrated terminal, debugger UI, notebooks, extension installation and upstream update infrastructure are removed from the application. Shared low-level editor interfaces are described in [the product contract](.lattice/spec/seshat-foundation.md).
 
-# Zed
+## Local build
 
-[![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)
-[![CI](https://github.com/zed-industries/zed/actions/workflows/run_tests.yml/badge.svg)](https://github.com/zed-industries/zed/actions/workflows/run_tests.yml)
+Use the installed mise Rust version pinned in `rust-toolchain.toml`:
 
-Welcome to Zed, a high-performance, multiplayer code editor from the creators of [Atom](https://github.com/atom/atom) and [Tree-sitter](https://github.com/tree-sitter/tree-sitter).
+```sh
+mise exec rust@1.97.1 -- cargo check --locked -p zed
+mise exec rust@1.97.1 -- script/seshat-verify
+mise exec rust@1.97.1 -- script/seshat-bundle
+```
 
----
+The bundle is written to `target/seshat-bundle/Seshat.app`. Quit the running local Seshat before replacing it. The wrapper keeps the previous bundle as a ZIP backup and signs the new one locally. It does not install into Applications or publish a release. Configuration and session data are separate from Zed.
 
-### Installation
+This macOS build is for local use; notarization and other-platform packages are separate work. In-place rich Markdown editing and a bounded-memory large-log viewer remain future work.
 
-On macOS, Linux, and Windows you can [download Zed directly](https://zed.dev/download) or install Zed via your local package manager ([macOS](https://zed.dev/docs/installation#macos)/[Linux](https://zed.dev/docs/linux#installing-via-a-package-manager)/[Windows](https://zed.dev/docs/windows#package-managers)).
+## Sources and license
 
-Other platforms are not yet available:
+Forked from [Zed](https://github.com/zed-industries/zed) `v1.18.1`, commit `bebe92f469834a287f5a57ed78e8d51a918b8ada`. Copyright notices and upstream attribution are preserved. The application is GPL-3.0-or-later; components marked Apache-2.0 retain that license. See [LICENSE-GPL](LICENSE-GPL), [LICENSE-APACHE](LICENSE-APACHE), and package manifests.
 
-- Web ([tracking discussion](https://github.com/zed-industries/zed/discussions/26195))
-
-### Developing Zed
-
-- [Building Zed for macOS](./docs/src/development/macos.md)
-- [Building Zed for Linux](./docs/src/development/linux.md)
-- [Building Zed for Windows](./docs/src/development/windows.md)
-
-### Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for ways you can contribute to Zed.
-
-Also... we're hiring! Check out our [jobs](https://zed.dev/jobs) page for open roles.
-
-### Licensing
-
-Zed source code is licensed primarily under GPL-3.0-or-later, with Apache-2.0 components where marked.
-
-License information for third party dependencies must be correctly provided for CI to pass.
-
-We use [`cargo-about`](https://github.com/EmbarkStudios/cargo-about) to automatically comply with open source licenses. If CI is failing, check the following:
-
-- Is it showing a `no license specified` error for a crate you've created? If so, add `publish = false` under `[package]` in your crate's Cargo.toml.
-- Is the error `failed to satisfy license requirements` for a dependency? If so, first determine what license the project has and whether this system is sufficient to comply with this license's requirements. If you're unsure, ask a lawyer. Once you've verified that this system is acceptable add the license's SPDX identifier to the `accepted` array in `script/licenses/zed-licenses.toml`.
-- Is `cargo-about` unable to find the license for a dependency? If so, add a clarification field at the end of `script/licenses/zed-licenses.toml`, as specified in the [cargo-about book](https://embarkstudios.github.io/cargo-about/cli/generate/config.html#crate-configuration).
-
-## Sponsorship
-
-Zed is developed by **Zed Industries, Inc.**, a for-profit company.
-
-If you’d like to financially support the project, you can do so via GitHub Sponsors.
-Sponsorships go directly to Zed Industries and are used as general company revenue.
-There are no perks or entitlements associated with sponsorship.
+The original Swift application remains in the separate `seshat-reader` repository. Maintained Seshat rules, contracts, decisions and acceptance evidence are indexed in [the project knowledge map](.lattice/knowledge.md). The `docs/src` tree contains upstream reference documentation and may describe features removed from this fork.

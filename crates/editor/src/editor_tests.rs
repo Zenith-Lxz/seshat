@@ -15602,7 +15602,9 @@ async fn test_snippet_with_multi_word_prefix(cx: &mut TestAppContext) {
 
 #[gpui::test]
 async fn test_read_only_buffer_is_not_formatted_or_saved(cx: &mut TestAppContext) {
-    init_test(cx, |_| {});
+    init_test(cx, |settings| {
+        settings.defaults.enable_language_server = Some(true);
+    });
 
     let fs = FakeFs::new(cx.executor());
     fs.insert_file(path!("/file.rs"), b"one\ntwo\nthree\n".to_vec())
@@ -15743,7 +15745,9 @@ async fn test_read_only_buffer_can_be_saved_as(cx: &mut TestAppContext) {
 
 #[gpui::test]
 async fn test_format_and_save_skip_read_only_buffers_in_multi_buffer(cx: &mut TestAppContext) {
-    init_test(cx, |_| {});
+    init_test(cx, |settings| {
+        settings.defaults.enable_language_server = Some(true);
+    });
 
     let fs = FakeFs::new(cx.executor());
     fs.insert_tree(

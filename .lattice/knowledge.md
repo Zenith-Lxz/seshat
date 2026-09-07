@@ -12,4 +12,6 @@ type: contract
 - [Seshat behavior and local build contract](spec/seshat-foundation.md)
 - [2026-09-07 native foundation acceptance](tasks/archive/2026-09/260907-build-the-seshat-zed-foundation/evidence/README.md) (historical evidence; recheck the current build)
 
+- [2026-09-07 source removal, simplified UI and native acceptance](../docs/audits/2026-09-07-core-only/README.md)
+
 Current task and handoff: `python3 .lattice/lattice task list`. Runtime records are local and shared; accepted contracts and archived evidence enter git.

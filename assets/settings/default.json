@@ -8,8 +8,8 @@
   // - "dark": Use the theme indicated by the "dark" field
   "theme": {
     "mode": "system",
-    "light": "One Light",
-    "dark": "One Dark",
+    "light": "Seshat Light",
+    "dark": "Seshat Dark",
   },
   "icon_theme": "Zed (Default)",
   // The name of a base set of key bindings to use.
@@ -68,7 +68,7 @@
   // The weight of the UI font in standard CSS units from 100 to 900.
   "ui_font_weight": 400,
   // The default font size for text in the UI
-  "ui_font_size": 16,
+  "ui_font_size": 14,
   // The font family for agent responses in the agent panel. Falls back to the UI font family if unset.
   "agent_ui_font_family": null,
   // The default font size for agent responses in the agent panel. Falls back to the UI font size if unset.
@@ -542,7 +542,7 @@
     // Whether to show quick action buttons.
     "quick_actions": true,
     // Whether to show the Selections menu in the editor toolbar.
-    "selections_menu": true,
+    "selections_menu": false,
     // Whether to show agent review buttons in the editor toolbar.
     "agent_review": false,
     // Whether to show code action buttons in the editor toolbar.
@@ -823,7 +823,7 @@
     // Default width of the project panel.
     "default_width": 240,
     // Where to dock the project panel. Can be 'left' or 'right'.
-    "dock": "right",
+    "dock": "left",
     // Spacing between worktree entries in the project panel. Can be 'comfortable' or 'standard'.
     "entry_spacing": "comfortable",
     // Whether to show file icons in the project panel.
@@ -1359,9 +1359,9 @@
     // Whether or not to show the tab bar in the editor
     "show": true,
     // Whether or not to show the navigation history buttons.
-    "show_nav_history_buttons": true,
+    "show_nav_history_buttons": false,
     // Whether or not to show the tab bar buttons.
-    "show_tab_bar_buttons": true,
+    "show_tab_bar_buttons": false,
     // Whether or not to show pinned tabs in a separate row.
     // When enabled, pinned tabs appear in a top row and unpinned tabs in a bottom row.
     // When disabled, all tabs appear in a single row (default behavior).
@@ -1700,7 +1700,7 @@
     // Control whether the git blame information is shown for the currently
     // focused line, and where it is rendered.
     "inline_blame": {
-      "enabled": true,
+      "enabled": false,
       // Sets a delay after which the inline blame information is shown.
       // Delay is restarted with every cursor movement.
       "delay_ms": 0,

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+python3 - <<'PY'
+import json
+import pathlib
+import subprocess
+
+root = pathlib.Path.cwd()
+metadata = json.loads(subprocess.check_output([
+    "cargo", "metadata", "--locked", "--offline", "--format-version", "1", "--no-deps"
+], text=True))
+forbidden = {
+    "agent", "agent_ui", "agent_servers", "agent_settings", "agent2",
+    "acp_thread", "acp_tools", "anthropic", "open_ai", "bedrock", "google_ai",
+    "language_model", "language_models", "copilot", "copilot_chat", "edit_prediction",
+    "context_server", "context_server_settings", "prompt_store", "inline_completion_button",
+    "call", "audio", "collab", "collab_ui", "livekit_client",
+    "terminal_view", "debugger_ui", "repl", "tasks_ui",
+    "remote_server", "remote_connection", "dev_container",
+    "extension_host", "extensions_ui", "settings_ui", "sidebar", "title_bar",
+    "auto_update", "auto_update_ui", "onboarding", "workspace_sidebar",
+}
+packages = {package["name"] for package in metadata["packages"]}
+assert not packages & forbidden, f"Removed workbench packages returned: {packages & forbidden}"
+for name in forbidden:
+    assert not (root / "crates" / name).exists(), f"Removed source returned: {name}"
+for removed_file in [
+    "crates/client/src/llm_token.rs", "crates/cloud_api_client/src/llm_token.rs",
+    "crates/project/src/agent_registry_store.rs", "crates/project/src/agent_server_store.rs",
+    "crates/project/src/context_server_store.rs",
+]:
+    assert not (root / removed_file).exists(), f"Removed integration returned: {removed_file}"
+languages = (root / "crates/languages/src/lib.rs").read_text()
+assert "register_lsp_adapter" not in languages
+telemetry = (root / "crates/client/src/telemetry.rs").read_text()
+for collector in ["EventCoalescer", "flush_events", "EventWrapper", "report_event", "is_staff"]:
+    assert collector not in telemetry, f"Telemetry collector returned: {collector}"
+print(f"Seshat boundary verified across {len(packages)} workspace packages")
+PY
+
+cargo test --locked -p zed -p markdown -p markdown_preview -p release_channel
+cargo test --locked -p workspace test_legacy_ai_settings_cannot_restore_sidebar
+cargo test --locked -p editor read_only
+cargo test --locked -p vim test_undo
+cargo test --locked -p git_ui stag
+cargo check --locked -p zed

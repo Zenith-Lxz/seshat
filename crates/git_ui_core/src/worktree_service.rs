@@ -1180,7 +1180,7 @@ async fn open_worktree_workspace(
         None
     };
 
-    let (workspace_task, modal_workspace) =
+    let (workspace_task, _modal_workspace) =
         window_handle.update(cx, |multi_workspace, window, cx| {
             let path_list = util::path_list::PathList::new(&all_paths);
             let active_workspace = multi_workspace.workspace().clone();
@@ -1208,14 +1208,7 @@ async fn open_worktree_workspace(
                 path_list,
                 remote_connection_options,
                 None,
-                move |connection_options, window, cx| {
-                    remote_connection::connect_with_modal(
-                        &active_workspace,
-                        connection_options,
-                        window,
-                        cx,
-                    )
-                },
+                move |_, _, _| Task::ready(Err(anyhow!("Seshat opens local worktrees only"))),
                 init,
                 OpenMode::Add,
                 source_for_transfer.clone(),
@@ -1226,7 +1219,6 @@ async fn open_worktree_workspace(
         })?;
 
     let result = workspace_task.await;
-    remote_connection::dismiss_connection_modal(&modal_workspace, cx);
     let new_workspace = result?;
 
     let panels_task = new_workspace.update(cx, |workspace, _cx| workspace.take_panels_task());

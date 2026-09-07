@@ -60,7 +60,6 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                 MenuItem::submenu(Menu::new("Settings").items([
                     MenuItem::action("Open Settings", zed_actions::OpenSettings),
                     MenuItem::action("Open Settings File", super::OpenSettingsFile),
-                    MenuItem::action("Open Project Settings", zed_actions::OpenProjectSettings),
                     MenuItem::action("Open Project Settings File", super::OpenProjectSettingsFile),
                     MenuItem::action("Open Default Settings", super::OpenDefaultSettings),
                     MenuItem::separator(),
@@ -211,35 +210,11 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                 MenuItem::action("Command Palette...", zed_actions::command_palette::Toggle),
                 MenuItem::separator(),
                 MenuItem::action("Go to File...", workspace::ToggleFileFinder::default()),
-                // MenuItem::action("Go to Symbol in Project", project_symbols::Toggle),
                 MenuItem::action(
                     "Go to Symbol in Editor...",
                     zed_actions::outline::ToggleOutline,
                 ),
                 MenuItem::action("Go to Line/Column...", editor::actions::ToggleGoToLine),
-                MenuItem::separator(),
-                MenuItem::action(
-                    "Go to Definition",
-                    editor::actions::GoToDefinition::default(),
-                ),
-                MenuItem::action(
-                    "Go to Declaration",
-                    editor::actions::GoToDeclaration::default(),
-                ),
-                MenuItem::action(
-                    "Go to Type Definition",
-                    editor::actions::GoToTypeDefinition::default(),
-                ),
-                MenuItem::action(
-                    "Find All References",
-                    editor::actions::FindAllReferences::default(),
-                ),
-                MenuItem::separator(),
-                MenuItem::action("Next Problem", editor::actions::GoToDiagnostic::default()),
-                MenuItem::action(
-                    "Previous Problem",
-                    editor::actions::GoToPreviousDiagnostic::default(),
-                ),
             ],
         },
         Menu {
@@ -255,34 +230,17 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
             name: "Help".into(),
             disabled: false,
             items: vec![
+                MenuItem::action("Open Source Licenses", zed_actions::OpenLicenses),
                 MenuItem::action(
-                    "View Release Notes Locally",
-                    auto_update_ui::ViewReleaseNotesLocally,
-                ),
-                MenuItem::action("View Telemetry", zed_actions::OpenTelemetryLog),
-                MenuItem::action("View Dependency Licenses", zed_actions::OpenLicenses),
-                MenuItem::separator(),
-                MenuItem::action("File Bug Report...", zed_actions::feedback::FileBugReport),
-                MenuItem::action("Request Feature...", zed_actions::feedback::RequestFeature),
-                MenuItem::action("Email Us...", zed_actions::feedback::EmailZed),
-                MenuItem::separator(),
-                MenuItem::action(
-                    "Documentation",
+                    "Seshat Repository",
                     super::OpenBrowser {
-                        url: "https://zed.dev/docs".into(),
-                    },
-                ),
-                MenuItem::action("Zed Repository", feedback::OpenZedRepo),
-                MenuItem::action(
-                    "Zed Twitter",
-                    super::OpenBrowser {
-                        url: "https://twitter.com/zeddotdev".into(),
+                        url: "https://github.com/Zenith-Lxz/seshat".into(),
                     },
                 ),
                 MenuItem::action(
-                    "Join the Team",
+                    "Report an Issue",
                     super::OpenBrowser {
-                        url: "https://zed.dev/jobs".into(),
+                        url: "https://github.com/Zenith-Lxz/seshat/issues".into(),
                     },
                 ),
             ],

@@ -1,11 +1,8 @@
 use crate::handle_open_request;
 use crate::restore_or_create_workspace;
-use agent_ui::ExternalSourcePrompt;
 use anyhow::{Context as _, Result, anyhow};
 use cli::{CliRequest, CliResponse, CliResponseSink};
 use cli::{IpcHandshake, ipc};
-use client::{ZedLink, parse_zed_link};
-use db::kvp::KeyValueStore;
 use editor::Editor;
 use fs::Fs;
 use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -16,10 +13,8 @@ use futures::{FutureExt, StreamExt};
 use git_ui::multi_diff_view::MultiDiffView;
 use git_ui_core::file_diff_view::FileDiffView;
 use gpui::{App, AsyncApp, Global, TaskExt, WindowHandle};
-use onboarding::FIRST_OPEN;
-use onboarding::show_onboarding_view;
-use recent_projects::{RemoteSettings, navigate_to_positions, open_remote_project};
-use remote::{RemoteConnectionOptions, WslConnectionOptions};
+use recent_projects::navigate_to_positions;
+use remote::RemoteConnectionOptions;
 use settings::Settings;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -54,21 +49,8 @@ pub enum OpenRequestKind {
         ),
     ),
     FocusApp,
-    Extension {
-        extension_id: String,
-    },
-    AgentPanel {
-        external_source_prompt: Option<ExternalSourcePrompt>,
-    },
-    InstallSkill {
-        /// Full `SKILL.md` contents embedded in a `zed://skill` share link.
-        content: String,
-    },
     DockMenuAction {
         index: usize,
-    },
-    BuiltinJsonSchema {
-        schema_path: String,
     },
     Setting {
         /// `None` opens settings without navigating to a specific path.
@@ -87,27 +69,9 @@ impl std::fmt::Debug for OpenRequestKind {
         match self {
             Self::CliConnection(_) => write!(f, "CliConnection(..)"),
             Self::FocusApp => write!(f, "FocusApp"),
-            Self::Extension { extension_id } => f
-                .debug_struct("Extension")
-                .field("extension_id", extension_id)
-                .finish(),
-            Self::AgentPanel {
-                external_source_prompt,
-            } => f
-                .debug_struct("AgentPanel")
-                .field("external_source_prompt", external_source_prompt)
-                .finish(),
-            Self::InstallSkill { content } => f
-                .debug_struct("InstallSkill")
-                .field("content_len", &content.len())
-                .finish(),
             Self::DockMenuAction { index } => f
                 .debug_struct("DockMenuAction")
                 .field("index", index)
-                .finish(),
-            Self::BuiltinJsonSchema { schema_path } => f
-                .debug_struct("BuiltinJsonSchema")
-                .field("schema_path", schema_path)
                 .finish(),
             Self::Setting { setting_path } => f
                 .debug_struct("Setting")
@@ -132,26 +96,14 @@ impl OpenRequest {
             && self.open_channel_notes.is_empty()
     }
 
-    pub fn parse(request: RawOpenRequest, cx: &App) -> Result<Self> {
+    pub fn parse(request: RawOpenRequest, _cx: &App) -> Result<Self> {
         let mut this = Self::default();
 
         this.diff_paths = request.diff_paths;
         this.diff_all = request.diff_all;
-        this.dev_container = request.dev_container;
         this.open_behavior = request.open_behavior;
-        if let Some(wsl) = request.wsl {
-            let (user, distro_name) = if let Some((user, distro)) = wsl.split_once('@') {
-                if user.is_empty() {
-                    anyhow::bail!("user is empty in wsl argument");
-                }
-                (Some(user.to_string()), distro.to_string())
-            } else {
-                (None, wsl)
-            };
-            this.remote_connection = Some(RemoteConnectionOptions::Wsl(WslConnectionOptions {
-                distro_name,
-                user,
-            }));
+        if request.dev_container || request.wsl.is_some() {
+            anyhow::bail!("Remote and container workspaces are not supported by Seshat");
         }
 
         for url in request.urls {
@@ -165,23 +117,20 @@ impl OpenRequest {
                 this.parse_file_path(file)
             } else if let Some(file) = url.strip_prefix("zed://file") {
                 this.parse_file_path(file)
-            } else if let Some(file) = url.strip_prefix("zed://ssh") {
-                let ssh_url = "ssh:/".to_string() + file;
-                this.parse_ssh_file_path(&ssh_url, cx)?
-            } else if let Some(extension_id) = url.strip_prefix("zed://extension/") {
-                this.kind = Some(OpenRequestKind::Extension {
-                    extension_id: extension_id.to_string(),
-                });
-            } else if url.starts_with(agent_skills::SKILL_SHARE_LINK_PREFIX) {
-                this.parse_skill_install_url(&url)?
-            } else if let Some(agent_path) = url.strip_prefix("zed://agent") {
-                this.parse_agent_url(agent_path)
+            } else if [
+                "zed://ssh",
+                "ssh://",
+                "zed://agent",
+                "zed://skill",
+                "zed://extension",
+                "zed://schemas",
+            ]
+            .iter()
+            .any(|prefix| url.starts_with(prefix))
+            {
+                anyhow::bail!("This workbench link is not supported by Seshat");
             } else if url == "zed://" || url == "zed://open" || url == "zed://open/" {
                 this.kind = Some(OpenRequestKind::FocusApp);
-            } else if let Some(schema_path) = url.strip_prefix("zed://schemas/") {
-                this.kind = Some(OpenRequestKind::BuiltinJsonSchema {
-                    schema_path: schema_path.to_string(),
-                });
             } else if url == "zed://settings" || url == "zed://settings/" {
                 this.kind = Some(OpenRequestKind::Setting { setting_path: None });
             } else if let Some(setting_path) = url.strip_prefix("zed://settings/") {
@@ -192,20 +141,6 @@ impl OpenRequest {
                 this.parse_git_clone_url(clone_path)?
             } else if let Some(commit_path) = url.strip_prefix("zed://git/commit/") {
                 this.parse_git_commit_url(commit_path)?
-            } else if url.starts_with("ssh://") {
-                this.parse_ssh_file_path(&url, cx)?
-            } else if let Some(zed_link) = parse_zed_link(&url, cx) {
-                match zed_link {
-                    ZedLink::Channel { channel_id } => {
-                        this.join_channel = Some(channel_id);
-                    }
-                    ZedLink::ChannelNotes {
-                        channel_id,
-                        heading,
-                    } => {
-                        this.open_channel_notes.push((channel_id, heading));
-                    }
-                }
             } else {
                 log::error!("unhandled url: {}", url);
             }
@@ -218,26 +153,6 @@ impl OpenRequest {
         if let Some(decoded) = urlencoding::decode(file).log_err() {
             self.open_paths.push(decoded.into_owned())
         }
-    }
-
-    fn parse_agent_url(&mut self, agent_path: &str) {
-        // Format: "" or "?prompt=<text>".
-        let agent_path = agent_path.strip_prefix('/').unwrap_or(agent_path);
-        let external_source_prompt = agent_path.strip_prefix('?').and_then(|query| {
-            url::form_urlencoded::parse(query.as_bytes())
-                .find_map(|(key, value)| (key == "prompt").then_some(value))
-                .and_then(|prompt| ExternalSourcePrompt::new(prompt.as_ref()))
-        });
-        self.kind = Some(OpenRequestKind::AgentPanel {
-            external_source_prompt,
-        });
-    }
-
-    fn parse_skill_install_url(&mut self, url: &str) -> Result<()> {
-        // Format: zed://skill?data=<base64url of SKILL.md contents>
-        let content = agent_skills::decode_skill_share_link(url)?;
-        self.kind = Some(OpenRequestKind::InstallSkill { content });
-        Ok(())
     }
 
     fn parse_git_clone_url(&mut self, clone_path: &str) -> Result<()> {
@@ -281,99 +196,6 @@ impl OpenRequest {
 
         Ok(())
     }
-
-    fn parse_ssh_file_path(&mut self, file: &str, cx: &App) -> Result<()> {
-        let url = parse_ssh_url(file)?;
-        let host = match url
-            .host()
-            .with_context(|| format!("missing host in ssh url: {url}"))?
-        {
-            url::Host::Domain(host) => host.to_string(),
-            url::Host::Ipv4(host) => host.to_string(),
-            url::Host::Ipv6(host) => host.to_string(),
-        };
-        let username = if url.username().is_empty() {
-            None
-        } else {
-            Some(urlencoding::decode(url.username())?.into_owned())
-        };
-        let port = url.port();
-        anyhow::ensure!(
-            self.open_paths.is_empty(),
-            "cannot open both local and ssh paths"
-        );
-        let mut connection_options =
-            RemoteSettings::get_global(cx).connection_options_for(host, port, username);
-        if let Some(password) = url.password() {
-            connection_options.password = Some(urlencoding::decode(password)?.into_owned());
-        }
-
-        let connection_options = RemoteConnectionOptions::Ssh(connection_options);
-        if let Some(ssh_connection) = &self.remote_connection {
-            anyhow::ensure!(
-                *ssh_connection == connection_options,
-                "cannot open multiple different remote connections"
-            );
-        }
-        self.remote_connection = Some(connection_options);
-        self.parse_file_path(url.path());
-        Ok(())
-    }
-}
-
-fn parse_ssh_url(url: &str) -> Result<url::Url> {
-    if let Ok(url) = url::Url::parse(url) {
-        return Ok(url);
-    }
-    // SCP/git style urls use ':' to separate from Authority and Path.
-    // They are unsupported by Url::parse, but can be normalized into a Url.
-    //   SCPUrl("ssh://user@host:~/relpath") => Url("ssh://user@host/~/relpath")
-    //   SCPUrl("ssh://user@host:/abs/path") => Url("ssh://user@host/abs/path")
-    //   SCPUrl("ssh://[2600::]:~/foo") => Url("ssh://[2600::]/~/foo")
-    let ssh_target = url
-        .strip_prefix("ssh://")
-        .with_context(|| format!("invalid ssh url: {url}"))?;
-
-    let (authority, path) = if let Some((authority, path)) = ssh_target.rsplit_once(":~/") {
-        (authority, format!("/~/{path}"))
-    } else if let Some((authority, path)) = ssh_target.rsplit_once(":/") {
-        (authority, format!("/{path}"))
-    } else {
-        anyhow::bail!("invalid ssh url: {url}");
-    };
-
-    let (userinfo, host) = authority
-        .rsplit_once('@')
-        .map_or((None, authority), |(userinfo, host)| (Some(userinfo), host));
-    anyhow::ensure!(
-        !host.is_empty() && url::Host::parse(host).is_ok(),
-        "invalid ssh url: {url}"
-    );
-
-    let normalized_authority = if let Some(userinfo) = userinfo {
-        let (username, colon_password) =
-            if let Some((username, password)) = userinfo.split_once(':') {
-                (
-                    urlencoding::encode(&urlencoding::decode(username)?).into_owned(),
-                    format!(
-                        ":{}",
-                        urlencoding::encode(&urlencoding::decode(password)?).into_owned()
-                    ),
-                )
-            } else {
-                (
-                    urlencoding::encode(&urlencoding::decode(userinfo)?).into_owned(),
-                    String::new(),
-                )
-            };
-        format!("{username}{colon_password}@{host}")
-    } else {
-        authority.to_string()
-    };
-
-    Ok(url::Url::parse(&format!(
-        "ssh://{normalized_authority}{path}"
-    ))?)
 }
 
 #[derive(Clone)]
@@ -862,29 +684,20 @@ async fn open_workspaces(
         };
 
     if grouped_locations.is_empty() {
-        // If we have no paths to open, show the welcome screen if this is the first launch
-        let kvp = cx.update(|cx| KeyValueStore::global(cx));
-        if matches!(kvp.read_kvp(FIRST_OPEN), Ok(None)) {
-            cx.update(|cx| show_onboarding_view(app_state, cx).detach());
-        }
-        // If not the first launch, show an empty window with empty editor
-        else {
-            cx.update(|cx| {
-                let open_options = OpenOptions {
-                    env,
-                    ..Default::default()
-                };
-                workspace::open_new(open_options, app_state, cx, |workspace, window, cx| {
-                    Editor::new_file(workspace, &Default::default(), window, cx)
-                })
-                .detach_and_log_err(cx);
-            });
-        }
+        cx.update(|cx| {
+            let open_options = OpenOptions {
+                env,
+                ..Default::default()
+            };
+            workspace::open_new(open_options, app_state, cx, |workspace, window, cx| {
+                Editor::new_file(workspace, &Default::default(), window, cx)
+            })
+            .detach_and_log_err(cx);
+        });
         return Ok(());
     }
-    // If there are paths to open, open a workspace for each grouping of paths
-    let mut errored = false;
 
+    let mut errored = false;
     for (location, workspace_paths) in grouped_locations {
         let base_open_options =
             cx.update(|cx| open_options_for_behavior(open_behavior, &location, cx));
@@ -919,26 +732,8 @@ async fn open_workspaces(
                     errored = true
                 }
             }
-            SerializedWorkspaceLocation::Remote(mut connection) => {
-                let app_state = app_state.clone();
-                if let RemoteConnectionOptions::Ssh(options) = &mut connection {
-                    cx.update(|cx| {
-                        RemoteSettings::get_global(cx)
-                            .fill_connection_options_from_settings(options)
-                    });
-                }
-                cx.spawn(async move |cx| {
-                    open_remote_project(
-                        connection,
-                        workspace_paths.paths().to_vec(),
-                        app_state,
-                        open_options,
-                        cx,
-                    )
-                    .await
-                    .log_err();
-                })
-                .detach();
+            SerializedWorkspaceLocation::Remote(_) => {
+                anyhow::bail!("Seshat opens local workspaces only");
             }
         }
     }
@@ -1131,7 +926,7 @@ mod tests {
     use futures::poll;
     use gpui::{AppContext as _, TestAppContext, UpdateGlobal as _};
     use language::LineEnding;
-    use remote::SshConnectionOptions;
+
     use rope::Rope;
     use serde_json::json;
     use session::Session;
@@ -1154,122 +949,6 @@ mod tests {
             self.0
                 .send(response)
                 .map_err(|error| anyhow::anyhow!("{error}"))
-        }
-    }
-
-    fn assert_ssh_parse(
-        cx: &mut TestAppContext,
-        input: &str,
-        expected_url: Option<&str>,
-        host: &str,
-        username: Option<&str>,
-        port: Option<u16>,
-        path: &str,
-    ) {
-        if let Some(expected_url) = expected_url {
-            assert_eq!(parse_ssh_url(input).unwrap().as_str(), expected_url);
-        }
-
-        let request = cx.update(|cx| {
-            let rq = RawOpenRequest {
-                urls: vec![input.into()],
-                ..Default::default()
-            };
-            OpenRequest::parse(rq, cx).unwrap()
-        });
-        assert_eq!(
-            request.remote_connection.unwrap(),
-            RemoteConnectionOptions::Ssh(SshConnectionOptions {
-                host: host.into(),
-                username: username.map(str::to_string),
-                port,
-                ..Default::default()
-            })
-        );
-        assert_eq!(request.open_paths, vec![path]);
-    }
-
-    #[gpui::test]
-    fn test_parse_ssh_urls(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-        let cases = [
-            ("ssh://me@host:/", None, "host", Some("me"), None, "/"),
-            (
-                "ssh://me@host:~/code",
-                None,
-                "host",
-                Some("me"),
-                None,
-                "/~/code",
-            ),
-            (
-                "ssh://me@host:22/tmp",
-                None,
-                "host",
-                Some("me"),
-                Some(22),
-                "/tmp",
-            ),
-            (
-                "ssh://user@domain.tld@host:22/tmp",
-                None,
-                "host",
-                Some("user@domain.tld"),
-                Some(22),
-                "/tmp",
-            ),
-            (
-                "ssh://domain\\user@host/dir",
-                Some("ssh://domain%5Cuser@host/dir"),
-                "host",
-                Some("domain\\user"),
-                None,
-                "/dir",
-            ),
-            (
-                r"ssh://domain\\user@localhost/project",
-                Some("ssh://domain%5C%5Cuser@localhost/project"),
-                "localhost",
-                Some(r"domain\\user"),
-                None,
-                "/project",
-            ),
-            (
-                "ssh://[2600::]:~/foo",
-                Some("ssh://[2600::]/~/foo"),
-                "2600::",
-                None,
-                None,
-                "/~/foo",
-            ),
-            (
-                "ssh://me@[2001:db8::1]:~/project",
-                Some("ssh://me@[2001:db8::1]/~/project"),
-                "2001:db8::1",
-                Some("me"),
-                None,
-                "/~/project",
-            ),
-            (
-                "ssh://me@[::1]:/tmp/file",
-                Some("ssh://me@[::1]/tmp/file"),
-                "::1",
-                Some("me"),
-                None,
-                "/tmp/file",
-            ),
-            (
-                "ssh://[2001:db8::2]:2222/tmp",
-                Some("ssh://[2001:db8::2]:2222/tmp"),
-                "2001:db8::2",
-                None,
-                Some(2222),
-                "/tmp",
-            ),
-        ];
-
-        for (input, expected_url, host, username, port, path) in cases {
-            assert_ssh_parse(cx, input, expected_url, host, username, port, path);
         }
     }
 
@@ -1368,29 +1047,15 @@ mod tests {
     }
 
     #[gpui::test]
-    fn test_parse_ssh_url_preserves_open_behavior(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec!["ssh://me@host:/".into()],
-                    open_behavior: Some(cli::OpenBehavior::AlwaysNew),
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        assert_eq!(request.open_behavior, Some(cli::OpenBehavior::AlwaysNew));
-    }
-
-    #[gpui::test]
-    fn test_reject_ssh_urls(cx: &mut TestAppContext) {
+    fn test_reject_removed_workbench_urls(cx: &mut TestAppContext) {
         let _app_state = init_test(cx);
 
         for input in [
+            "zed://agent?prompt=hello",
+            "zed://extension/example",
+            "zed://skill?data=e30=",
+            "zed://schemas/settings.json",
+            "zed://ssh/user@host/project",
             "ssh://me@localhost:code/vibes/mine-bot",
             "ssh://me@localhost:2222:~/project",
             "ssh://2600:::~/foo",
@@ -1470,60 +1135,6 @@ mod tests {
     }
 
     #[gpui::test]
-    fn test_parse_agent_url(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec!["zed://agent".into()],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        match request.kind {
-            Some(OpenRequestKind::AgentPanel {
-                external_source_prompt,
-            }) => {
-                assert_eq!(external_source_prompt, None);
-            }
-            _ => panic!("Expected AgentPanel kind"),
-        }
-    }
-
-    #[gpui::test]
-    fn test_parse_skill_install_url(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-
-        let content =
-            "---\nname: my-skill\ndescription: Does a thing.\n---\n\nDo the thing.\n".to_string();
-        let link = agent_skills::encode_skill_share_link(&content);
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec![link],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        match request.kind {
-            Some(OpenRequestKind::InstallSkill {
-                content: parsed_content,
-            }) => {
-                assert_eq!(parsed_content, content);
-            }
-            _ => panic!("Expected InstallSkill kind"),
-        }
-    }
-
-    #[gpui::test]
     fn test_parse_malformed_skill_install_url_errors(cx: &mut TestAppContext) {
         let _app_state = init_test(cx);
 
@@ -1538,73 +1149,6 @@ mod tests {
         });
 
         assert!(result.is_err());
-    }
-
-    fn agent_url_with_prompt(prompt: &str) -> String {
-        let mut serializer = url::form_urlencoded::Serializer::new("zed://agent?".to_string());
-        serializer.append_pair("prompt", prompt);
-        serializer.finish()
-    }
-
-    #[gpui::test]
-    fn test_parse_agent_url_with_prompt(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-        let prompt = "Write me a script\nThanks";
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec![agent_url_with_prompt(prompt)],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        match request.kind {
-            Some(OpenRequestKind::AgentPanel {
-                external_source_prompt,
-            }) => {
-                assert_eq!(
-                    external_source_prompt
-                        .as_ref()
-                        .map(ExternalSourcePrompt::as_str),
-                    Some("Write me a script\nThanks")
-                );
-            }
-            _ => panic!("Expected AgentPanel kind"),
-        }
-    }
-
-    #[gpui::test]
-    fn test_parse_agent_url_with_trailing_slash(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec!["zed://agent/?prompt=hello".into()],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        match request.kind {
-            Some(OpenRequestKind::AgentPanel {
-                external_source_prompt,
-            }) => {
-                assert_eq!(
-                    external_source_prompt
-                        .as_ref()
-                        .map(ExternalSourcePrompt::as_str),
-                    Some("hello")
-                );
-            }
-            _ => panic!("Expected AgentPanel kind"),
-        }
     }
 
     #[gpui::test]
@@ -1631,31 +1175,6 @@ mod tests {
                 request.is_focus_app_only(),
                 "expected is_focus_app_only for {url}"
             );
-        }
-    }
-
-    #[gpui::test]
-    fn test_parse_agent_url_with_empty_prompt(cx: &mut TestAppContext) {
-        let _app_state = init_test(cx);
-
-        let request = cx.update(|cx| {
-            OpenRequest::parse(
-                RawOpenRequest {
-                    urls: vec![agent_url_with_prompt("")],
-                    ..Default::default()
-                },
-                cx,
-            )
-            .unwrap()
-        });
-
-        match request.kind {
-            Some(OpenRequestKind::AgentPanel {
-                external_source_prompt,
-            }) => {
-                assert_eq!(external_source_prompt, None);
-            }
-            _ => panic!("Expected AgentPanel kind"),
         }
     }
 
@@ -2314,128 +1833,6 @@ mod tests {
             .update(cx, |workspace, _, cx| {
                 let items = workspace.workspace().read(cx).items(cx).collect::<Vec<_>>();
                 assert_eq!(items.len(), 1, "Other window should still have 1 item");
-            })
-            .unwrap();
-    }
-
-    #[gpui::test]
-    async fn test_dev_container_flag_opens_modal(cx: &mut TestAppContext) {
-        let app_state = init_test(cx);
-        cx.update(|cx| recent_projects::init(cx));
-
-        app_state
-            .fs
-            .as_fake()
-            .insert_tree(
-                path!("/project"),
-                json!({
-                    ".devcontainer": {
-                        "devcontainer.json": "{}"
-                    },
-                    "src": {
-                        "main.rs": "fn main() {}"
-                    }
-                }),
-            )
-            .await;
-
-        let errored = cx
-            .spawn({
-                let app_state = app_state.clone();
-                |mut cx| async move {
-                    let response_sink = DiscardResponseSink;
-                    open_local_workspace(
-                        vec![path!("/project").to_owned()],
-                        vec![],
-                        false,
-                        workspace::OpenOptions {
-                            open_in_dev_container: true,
-                            ..Default::default()
-                        },
-                        None,
-                        &response_sink,
-                        &app_state,
-                        &mut cx,
-                    )
-                    .await
-                }
-            })
-            .await;
-
-        assert!(!errored);
-        cx.run_until_parked();
-
-        let multi_workspace = cx.update(|cx| cx.windows()[0].downcast::<MultiWorkspace>().unwrap());
-        multi_workspace
-            .update(cx, |multi_workspace, _, cx| {
-                let flag = multi_workspace.workspace().read(cx).open_in_dev_container();
-                assert!(
-                    !flag,
-                    "open_in_dev_container flag should be consumed by suggest_on_worktree_updated"
-                );
-            })
-            .unwrap();
-    }
-
-    #[gpui::test]
-    async fn test_dev_container_flag_cleared_without_config(cx: &mut TestAppContext) {
-        let app_state = init_test(cx);
-        cx.update(|cx| recent_projects::init(cx));
-
-        app_state
-            .fs
-            .as_fake()
-            .insert_tree(
-                path!("/project"),
-                json!({
-                    "src": {
-                        "main.rs": "fn main() {}"
-                    }
-                }),
-            )
-            .await;
-
-        let errored = cx
-            .spawn({
-                let app_state = app_state.clone();
-                |mut cx| async move {
-                    let response_sink = DiscardResponseSink;
-                    open_local_workspace(
-                        vec![path!("/project").to_owned()],
-                        vec![],
-                        false,
-                        workspace::OpenOptions {
-                            open_in_dev_container: true,
-                            ..Default::default()
-                        },
-                        None,
-                        &response_sink,
-                        &app_state,
-                        &mut cx,
-                    )
-                    .await
-                }
-            })
-            .await;
-
-        assert!(!errored);
-
-        // Let any pending worktree scan events and updates settle.
-        cx.run_until_parked();
-
-        // With no .devcontainer config, the flag should be cleared once the
-        // worktree scan completes, rather than persisting on the workspace.
-        let multi_workspace = cx.update(|cx| cx.windows()[0].downcast::<MultiWorkspace>().unwrap());
-        multi_workspace
-            .update(cx, |multi_workspace, _, cx| {
-                let flag = multi_workspace
-                    .workspace()
-                    .read(cx)
-                    .open_in_dev_container();
-                assert!(
-                    !flag,
-                    "open_in_dev_container flag should be cleared when no devcontainer config exists"
-                );
             })
             .unwrap();
     }

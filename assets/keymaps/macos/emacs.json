@@ -48,8 +48,8 @@
       "ctrl-t": "editor::Transpose", // transpose-chars
       "alt-;": ["editor::ToggleComments", { "advance_downwards": false }],
       "ctrl-x ctrl-;": "editor::ToggleComments",
-      "alt-.": "editor::GoToDefinition", // xref-find-definitions
-      "alt-?": "editor::FindAllReferences", // xref-find-references
+       // xref-find-definitions
+       // xref-find-references
       "alt-,": "pane::GoBack", // xref-pop-marker-stack
       "ctrl-x h": "editor::SelectAll", // mark-whole-buffer
       "ctrl-d": "editor::Delete", // delete-char
@@ -164,27 +164,7 @@
       "ctrl-x s": "workspace::SaveAll", // save-some-buffers
     },
   },
-  {
-    // Workaround to enable using native emacs from the Zed terminal.
-    // Unbind so Zed ignores these keys and lets emacs handle them.
-    // NOTE:
-    //  "terminal::SendKeystroke" only works for a single key stroke (e.g. ctrl-x),
-    //  so override with null for compound sequences (e.g. ctrl-x ctrl-c).
-    "context": "Terminal",
-    "bindings": {
-      // If you want to perfect your emacs-in-zed setup, also consider the following.
-      // You may need to enable "option_as_meta" from the Zed settings for "alt-x" to work.
-      // "alt-x": ["terminal::SendKeystroke", "alt-x"],
-      // "ctrl-x": ["terminal::SendKeystroke", "ctrl-x"],
-      // "ctrl-n": ["terminal::SendKeystroke", "ctrl-n"],
-      // ...
-      "ctrl-x ctrl-c": null, // save-buffers-kill-terminal
-      "ctrl-x ctrl-f": null, // find-file
-      "ctrl-x ctrl-s": null, // save-buffer
-      "ctrl-x ctrl-w": null, // write-file
-      "ctrl-x s": null, // save-some-buffers
-    },
-  },
+
   {
     "context": "BufferSearchBar > Editor",
     "bindings": {

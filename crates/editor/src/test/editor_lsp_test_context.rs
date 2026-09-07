@@ -14,7 +14,7 @@ use crate::{Editor, ToPoint};
 use collections::HashSet;
 use futures::Future;
 use futures::stream::StreamExt;
-use gpui::{Context, Entity, Focusable as _, VisualTestContext, Window};
+use gpui::{Context, Entity, Focusable as _, UpdateGlobal, VisualTestContext, Window};
 use indoc::indoc;
 use language::{
     BlockCommentConfig, FakeLspAdapter, Language, LanguageConfig, LanguageMatcher, LanguageQueries,
@@ -54,6 +54,15 @@ impl EditorLspTestContext {
         let app_state = cx.update(AppState::test);
 
         cx.update(|cx| {
+            settings::SettingsStore::update_global(cx, |store, cx| {
+                store.update_user_settings(cx, |settings| {
+                    settings
+                        .project
+                        .all_languages
+                        .defaults
+                        .enable_language_server = Some(true);
+                });
+            });
             assets::Assets.load_test_fonts(cx);
             crate::init(cx);
             workspace::init(app_state.clone(), cx);

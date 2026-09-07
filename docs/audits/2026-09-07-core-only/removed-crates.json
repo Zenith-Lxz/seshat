@@ -1,0 +1,414 @@
+{
+  "baseline": "b951c2c",
+  "removed": [
+    {
+      "crate": "acp_thread",
+      "directory": "crates/acp_thread"
+    },
+    {
+      "crate": "acp_tools",
+      "directory": "crates/acp_tools"
+    },
+    {
+      "crate": "action_log",
+      "directory": "crates/action_log"
+    },
+    {
+      "crate": "activity_indicator",
+      "directory": "crates/activity_indicator"
+    },
+    {
+      "crate": "agent",
+      "directory": "crates/agent"
+    },
+    {
+      "crate": "agent_servers",
+      "directory": "crates/agent_servers"
+    },
+    {
+      "crate": "agent_settings",
+      "directory": "crates/agent_settings"
+    },
+    {
+      "crate": "agent_skills",
+      "directory": "crates/agent_skills"
+    },
+    {
+      "crate": "agent_ui",
+      "directory": "crates/agent_ui"
+    },
+    {
+      "crate": "ai_onboarding",
+      "directory": "crates/ai_onboarding"
+    },
+    {
+      "crate": "anthropic",
+      "directory": "crates/anthropic"
+    },
+    {
+      "crate": "audio",
+      "directory": "crates/audio"
+    },
+    {
+      "crate": "auto_update",
+      "directory": "crates/auto_update"
+    },
+    {
+      "crate": "auto_update_helper",
+      "directory": "crates/auto_update_helper"
+    },
+    {
+      "crate": "auto_update_ui",
+      "directory": "crates/auto_update_ui"
+    },
+    {
+      "crate": "aws_http_client",
+      "directory": "crates/aws_http_client"
+    },
+    {
+      "crate": "bedrock",
+      "directory": "crates/bedrock"
+    },
+    {
+      "crate": "benchmarks",
+      "directory": "crates/benchmarks"
+    },
+    {
+      "crate": "call",
+      "directory": "crates/call"
+    },
+    {
+      "crate": "codestral",
+      "directory": "crates/codestral"
+    },
+    {
+      "crate": "collab",
+      "directory": "crates/collab"
+    },
+    {
+      "crate": "collab_ui",
+      "directory": "crates/collab_ui"
+    },
+    {
+      "crate": "compliance",
+      "directory": "tooling/compliance"
+    },
+    {
+      "crate": "component_preview",
+      "directory": "crates/component_preview"
+    },
+    {
+      "crate": "context_server",
+      "directory": "crates/context_server"
+    },
+    {
+      "crate": "copilot",
+      "directory": "crates/copilot"
+    },
+    {
+      "crate": "copilot_chat",
+      "directory": "crates/copilot_chat"
+    },
+    {
+      "crate": "copilot_ui",
+      "directory": "crates/copilot_ui"
+    },
+    {
+      "crate": "dap_adapters",
+      "directory": "crates/dap_adapters"
+    },
+    {
+      "crate": "debug_adapter_extension",
+      "directory": "crates/debug_adapter_extension"
+    },
+    {
+      "crate": "debugger_tools",
+      "directory": "crates/debugger_tools"
+    },
+    {
+      "crate": "debugger_ui",
+      "directory": "crates/debugger_ui"
+    },
+    {
+      "crate": "deepseek",
+      "directory": "crates/deepseek"
+    },
+    {
+      "crate": "dev_container",
+      "directory": "crates/dev_container"
+    },
+    {
+      "crate": "diagnostics",
+      "directory": "crates/diagnostics"
+    },
+    {
+      "crate": "docs_preprocessor",
+      "directory": "crates/docs_preprocessor"
+    },
+    {
+      "crate": "edit_prediction",
+      "directory": "crates/edit_prediction"
+    },
+    {
+      "crate": "edit_prediction_cli",
+      "directory": "crates/edit_prediction_cli"
+    },
+    {
+      "crate": "edit_prediction_context",
+      "directory": "crates/edit_prediction_context"
+    },
+    {
+      "crate": "edit_prediction_metrics",
+      "directory": "crates/edit_prediction_metrics"
+    },
+    {
+      "crate": "edit_prediction_ui",
+      "directory": "crates/edit_prediction_ui"
+    },
+    {
+      "crate": "editor_benchmarks",
+      "directory": "crates/editor_benchmarks"
+    },
+    {
+      "crate": "eval_cli",
+      "directory": "crates/eval_cli"
+    },
+    {
+      "crate": "eval_utils",
+      "directory": "crates/eval_utils"
+    },
+    {
+      "crate": "explorer_command_injector",
+      "directory": "crates/explorer_command_injector"
+    },
+    {
+      "crate": "extension_cli",
+      "directory": "crates/extension_cli"
+    },
+    {
+      "crate": "extension_host",
+      "directory": "crates/extension_host"
+    },
+    {
+      "crate": "extensions_ui",
+      "directory": "crates/extensions_ui"
+    },
+    {
+      "crate": "feedback",
+      "directory": "crates/feedback"
+    },
+    {
+      "crate": "fs_benchmarks",
+      "directory": "crates/fs_benchmarks"
+    },
+    {
+      "crate": "google_ai",
+      "directory": "crates/google_ai"
+    },
+    {
+      "crate": "html_to_markdown",
+      "directory": "crates/html_to_markdown"
+    },
+    {
+      "crate": "input_latency_ui",
+      "directory": "crates/input_latency_ui"
+    },
+    {
+      "crate": "inspector_ui",
+      "directory": "crates/inspector_ui"
+    },
+    {
+      "crate": "journal",
+      "directory": "crates/journal"
+    },
+    {
+      "crate": "language_extension",
+      "directory": "crates/language_extension"
+    },
+    {
+      "crate": "language_model",
+      "directory": "crates/language_model"
+    },
+    {
+      "crate": "language_models",
+      "directory": "crates/language_models"
+    },
+    {
+      "crate": "language_models_cloud",
+      "directory": "crates/language_models_cloud"
+    },
+    {
+      "crate": "language_onboarding",
+      "directory": "crates/language_onboarding"
+    },
+    {
+      "crate": "language_tools",
+      "directory": "crates/language_tools"
+    },
+    {
+      "crate": "livekit_api",
+      "directory": "crates/livekit_api"
+    },
+    {
+      "crate": "livekit_client",
+      "directory": "crates/livekit_client"
+    },
+    {
+      "crate": "llama_cpp",
+      "directory": "crates/llama_cpp"
+    },
+    {
+      "crate": "lmstudio",
+      "directory": "crates/lmstudio"
+    },
+    {
+      "crate": "miniprofiler_ui",
+      "directory": "crates/miniprofiler_ui"
+    },
+    {
+      "crate": "mistral",
+      "directory": "crates/mistral"
+    },
+    {
+      "crate": "oauth_callback_server",
+      "directory": "crates/oauth_callback_server"
+    },
+    {
+      "crate": "ollama",
+      "directory": "crates/ollama"
+    },
+    {
+      "crate": "onboarding",
+      "directory": "crates/onboarding"
+    },
+    {
+      "crate": "open_ai",
+      "directory": "crates/open_ai"
+    },
+    {
+      "crate": "open_router",
+      "directory": "crates/open_router"
+    },
+    {
+      "crate": "openai_subscribed",
+      "directory": "crates/openai_subscribed"
+    },
+    {
+      "crate": "opencode",
+      "directory": "crates/opencode"
+    },
+    {
+      "crate": "project_benchmarks",
+      "directory": "crates/project_benchmarks"
+    },
+    {
+      "crate": "project_symbols",
+      "directory": "crates/project_symbols"
+    },
+    {
+      "crate": "prompt_store",
+      "directory": "crates/prompt_store"
+    },
+    {
+      "crate": "remote_connection",
+      "directory": "crates/remote_connection"
+    },
+    {
+      "crate": "remote_server",
+      "directory": "crates/remote_server"
+    },
+    {
+      "crate": "repl",
+      "directory": "crates/repl"
+    },
+    {
+      "crate": "schema_generator",
+      "directory": "crates/schema_generator"
+    },
+    {
+      "crate": "settings_ui",
+      "directory": "crates/settings_ui"
+    },
+    {
+      "crate": "shell_command_parser",
+      "directory": "crates/shell_command_parser"
+    },
+    {
+      "crate": "sidebar",
+      "directory": "crates/sidebar"
+    },
+    {
+      "crate": "snippets_ui",
+      "directory": "crates/snippets_ui"
+    },
+    {
+      "crate": "streaming_diff",
+      "directory": "crates/streaming_diff"
+    },
+    {
+      "crate": "tasks_ui",
+      "directory": "crates/tasks_ui"
+    },
+    {
+      "crate": "terminal_view",
+      "directory": "crates/terminal_view"
+    },
+    {
+      "crate": "theme_extension",
+      "directory": "crates/theme_extension"
+    },
+    {
+      "crate": "theme_importer",
+      "directory": "crates/theme_importer"
+    },
+    {
+      "crate": "title_bar",
+      "directory": "crates/title_bar"
+    },
+    {
+      "crate": "toolchain_selector",
+      "directory": "crates/toolchain_selector"
+    },
+    {
+      "crate": "web_search",
+      "directory": "crates/web_search"
+    },
+    {
+      "crate": "web_search_providers",
+      "directory": "crates/web_search_providers"
+    },
+    {
+      "crate": "worktree_benchmarks",
+      "directory": "crates/worktree_benchmarks"
+    },
+    {
+      "crate": "x_ai",
+      "directory": "crates/x_ai"
+    },
+    {
+      "crate": "xtask",
+      "directory": "tooling/xtask"
+    },
+    {
+      "crate": "zed_extension_api",
+      "directory": "crates/extension_api"
+    },
+    {
+      "crate": "zed_glsl",
+      "directory": "extensions/glsl"
+    },
+    {
+      "crate": "zed_html",
+      "directory": "extensions/html"
+    },
+    {
+      "crate": "zed_proto",
+      "directory": "extensions/proto"
+    },
+    {
+      "crate": "zed_test_extension",
+      "directory": "extensions/test-extension"
+    }
+  ],
+  "retained_crates": 149
+}

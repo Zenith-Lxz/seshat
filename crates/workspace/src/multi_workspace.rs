@@ -6,10 +6,9 @@ use gpui::{
     ManagedView, MouseButton, Pixels, Render, Subscription, Task, TaskExt, WeakEntity, Window,
     WindowId, actions, deferred, px,
 };
+use project::Project;
 pub use project::ProjectGroupKey;
-use project::{DisableAiSettings, Project};
 use remote::RemoteConnectionOptions;
-use settings::Settings;
 pub use settings::SidebarSide;
 use std::cell::Cell;
 use std::future::Future;
@@ -20,7 +19,6 @@ use util::ResultExt;
 use util::path_list::PathList;
 use zed_actions::agents_sidebar::ToggleThreadSwitcher;
 
-use agent_settings::AgentSettings;
 use settings::SidebarDockPosition;
 use ui::{ContextMenu, right_click_menu};
 
@@ -69,9 +67,9 @@ pub struct SidebarRenderState {
 
 pub fn sidebar_side_context_menu(
     id: impl Into<ElementId>,
-    cx: &App,
+    _cx: &App,
 ) -> ui::RightClickMenu<ContextMenu> {
-    let current_position = AgentSettings::get_global(cx).sidebar_side;
+    let current_position = SidebarDockPosition::Left;
     right_click_menu(id).menu(move |window, cx| {
         let fs = <dyn fs::Fs>::global(cx);
         ContextMenu::build(window, cx, move |mut menu, _, _cx| {
@@ -334,7 +332,7 @@ impl MultiWorkspace {
 
     pub fn sidebar_render_state(&self, cx: &App) -> SidebarRenderState {
         SidebarRenderState {
-            open: self.sidebar_open() && self.multi_workspace_enabled(cx),
+            open: self.sidebar_open() && self.sidebar_available(cx),
             side: self.sidebar_side(cx),
         }
     }
@@ -350,9 +348,7 @@ impl MultiWorkspace {
         });
         let quit_subscription = cx.on_app_quit(Self::app_will_quit);
         let settings_subscription = cx.observe_global_in::<settings::SettingsStore>(window, {
-            let mut previous_multi_workspace_enabled = !DisableAiSettings::get_global(cx)
-                .disable_ai
-                && AgentSettings::get_global(cx).enabled;
+            let mut previous_multi_workspace_enabled = false;
             move |this, window, cx| {
                 let multi_workspace_enabled = this.multi_workspace_enabled(cx);
                 if previous_multi_workspace_enabled && !multi_workspace_enabled {
@@ -429,12 +425,16 @@ impl MultiWorkspace {
             .map_or(false, |s| s.is_threads_list_view_active(cx))
     }
 
-    pub fn multi_workspace_enabled(&self, cx: &App) -> bool {
-        !DisableAiSettings::get_global(cx).disable_ai && AgentSettings::get_global(cx).enabled
+    pub fn multi_workspace_enabled(&self, _cx: &App) -> bool {
+        true
+    }
+
+    pub fn sidebar_available(&self, _cx: &App) -> bool {
+        self.sidebar.is_some()
     }
 
     pub fn toggle_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.multi_workspace_enabled(cx) {
+        if !self.sidebar_available(cx) {
             return;
         }
 
@@ -451,7 +451,7 @@ impl MultiWorkspace {
     }
 
     pub fn close_sidebar_action(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.multi_workspace_enabled(cx) {
+        if !self.sidebar_available(cx) {
             return;
         }
 
@@ -461,7 +461,7 @@ impl MultiWorkspace {
     }
 
     pub fn focus_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.multi_workspace_enabled(cx) {
+        if !self.sidebar_available(cx) {
             return;
         }
 
@@ -2029,7 +2029,7 @@ impl MultiWorkspace {
 
 impl Render for MultiWorkspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let multi_workspace_enabled = self.multi_workspace_enabled(cx);
+        let multi_workspace_enabled = self.sidebar_available(cx);
         let sidebar_side = self.sidebar_side(cx);
         let sidebar_on_right = sidebar_side == SidebarSide::Right;
 
@@ -2113,7 +2113,7 @@ impl Render for MultiWorkspace {
                 .font(ui_font)
                 .text_color(text_color)
                 .on_action(cx.listener(Self::close_window))
-                .when(self.multi_workspace_enabled(cx), |this| {
+                .when(self.sidebar_available(cx), |this| {
                     this.on_action(cx.listener(
                         |this: &mut Self, _: &ToggleWorkspaceSidebar, window, cx| {
                             this.toggle_sidebar(window, cx);
@@ -2183,26 +2183,20 @@ impl Render for MultiWorkspace {
                         ))
                     })
                 })
-                .when(
-                    self.sidebar_open() && self.multi_workspace_enabled(cx),
-                    |this| {
-                        this.on_drag_move(cx.listener(
-                            move |this: &mut Self,
-                                  e: &DragMoveEvent<DraggedSidebar>,
-                                  window,
-                                  cx| {
-                                if let Some(sidebar) = &this.sidebar {
-                                    let new_width = if sidebar_on_right {
-                                        window.bounds().size.width - e.event.position.x
-                                    } else {
-                                        e.event.position.x
-                                    };
-                                    sidebar.set_width(Some(new_width), cx);
-                                }
-                            },
-                        ))
-                    },
-                )
+                .when(self.sidebar_open() && self.sidebar_available(cx), |this| {
+                    this.on_drag_move(cx.listener(
+                        move |this: &mut Self, e: &DragMoveEvent<DraggedSidebar>, window, cx| {
+                            if let Some(sidebar) = &this.sidebar {
+                                let new_width = if sidebar_on_right {
+                                    window.bounds().size.width - e.event.position.x
+                                } else {
+                                    e.event.position.x
+                                };
+                                sidebar.set_width(Some(new_width), cx);
+                            }
+                        },
+                    ))
+                })
                 .children(left_sidebar)
                 .child(
                     div()
