@@ -4,7 +4,7 @@ type: contract
 # Seshat foundation
 
 - App display name is Seshat; the stable macOS bundle identifier is `dev.seshat.editor`. Its configuration, state, caches, logs and instance handshake are separate from Zed.
-- Keep real session persistence enabled. A stateless launch is only an experiment and cannot pass session acceptance.
+- Keep real session persistence enabled. Normal Quit retains unsaved buffers for restoration; closing an individual dirty tab asks whether to save, discard or cancel. A stateless launch is only an experiment and cannot pass session acceptance.
 - Start directly in the editing workspace. Vim is enabled by default and remains configurable. AI application services, language-server adapters, telemetry collection/upload and automatic updates are removed. Save does not automatically format, trim trailing spaces or add a final newline. Per-language Prettier integration is disabled by default so merely opening Markdown does not preinstall its formatter.
 - The fork never polls for or installs an upstream Zed update, including when a local setting enables automatic updates. No upstream account authentication is started during launch.
 - `.log`, case variants and numeric rotated logs open read-only through the existing `read_only_files` setting. The owner can explicitly override that setting. This is ordinary text-buffer loading, not a large-log streaming viewer.

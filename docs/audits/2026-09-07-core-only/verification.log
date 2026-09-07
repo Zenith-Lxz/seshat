@@ -1,0 +1,555 @@
+Seshat boundary verified across 149 workspace packages
+   Compiling workspace v0.1.0 (/Users/liuxianzhao/project/seshat/crates/workspace)
+   Compiling cli v0.1.0 (/Users/liuxianzhao/project/seshat/crates/cli)
+   Compiling zed v1.18.1 (/Users/liuxianzhao/project/seshat/crates/zed)
+   Compiling breadcrumbs v0.1.0 (/Users/liuxianzhao/project/seshat/crates/breadcrumbs)
+   Compiling picker v0.1.0 (/Users/liuxianzhao/project/seshat/crates/picker)
+   Compiling command_palette_hooks v0.1.0 (/Users/liuxianzhao/project/seshat/crates/command_palette_hooks)
+   Compiling notifications v0.1.0 (/Users/liuxianzhao/project/seshat/crates/notifications)
+   Compiling panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/panel)
+   Compiling ui_prompt v0.1.0 (/Users/liuxianzhao/project/seshat/crates/ui_prompt)
+   Compiling svg_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/svg_preview)
+   Compiling install_cli v0.1.0 (/Users/liuxianzhao/project/seshat/crates/install_cli)
+   Compiling platform_title_bar v0.1.0 (/Users/liuxianzhao/project/seshat/crates/platform_title_bar)
+   Compiling editor v0.1.0 (/Users/liuxianzhao/project/seshat/crates/editor)
+   Compiling command_palette v0.1.0 (/Users/liuxianzhao/project/seshat/crates/command_palette)
+   Compiling open_path_prompt v0.1.0 (/Users/liuxianzhao/project/seshat/crates/open_path_prompt)
+   Compiling theme_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/theme_selector)
+   Compiling settings_profile_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/settings_profile_selector)
+   Compiling which_key v0.1.0 (/Users/liuxianzhao/project/seshat/crates/which_key)
+   Compiling picker_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/picker_preview)
+   Compiling markdown_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/markdown_preview)
+   Compiling git_ui_core v0.1.0 (/Users/liuxianzhao/project/seshat/crates/git_ui_core)
+   Compiling tabular_data_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/tabular_data_preview)
+   Compiling line_ending_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/line_ending_selector)
+   Compiling image_viewer v0.1.0 (/Users/liuxianzhao/project/seshat/crates/image_viewer)
+   Compiling tab_switcher v0.1.0 (/Users/liuxianzhao/project/seshat/crates/tab_switcher)
+   Compiling language_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/language_selector)
+   Compiling encoding_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/encoding_selector)
+   Compiling recent_projects v0.1.0 (/Users/liuxianzhao/project/seshat/crates/recent_projects)
+   Compiling go_to_line v0.1.0 (/Users/liuxianzhao/project/seshat/crates/go_to_line)
+   Compiling search v0.1.0 (/Users/liuxianzhao/project/seshat/crates/search)
+   Compiling outline v0.1.0 (/Users/liuxianzhao/project/seshat/crates/outline)
+   Compiling file_finder v0.1.0 (/Users/liuxianzhao/project/seshat/crates/file_finder)
+   Compiling lsp_locations v0.1.0 (/Users/liuxianzhao/project/seshat/crates/lsp_locations)
+   Compiling project_panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/project_panel)
+   Compiling git_ui v0.1.0 (/Users/liuxianzhao/project/seshat/crates/git_ui)
+   Compiling outline_panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/outline_panel)
+   Compiling keymap_editor v0.1.0 (/Users/liuxianzhao/project/seshat/crates/keymap_editor)
+   Compiling vim v0.1.0 (/Users/liuxianzhao/project/seshat/crates/vim)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `markdown_preview` (lib test) generated 1 warning
+warning: `zed` (bin "seshat" test) generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.58s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/markdown.rs (target/debug/deps/markdown-37b6d14b9c8d3a33)
+
+running 156 tests
+test html::html_minifier::tests::test_write_collapse_whitespace ... ok
+test html::html_minifier::tests::test_omit_tags ... ok
+test html::html_parser::tests::parses_html_list_as_explicit_list_node ... ok
+test html::html_parser::tests::parses_html_table_th_defaults_to_center ... ok
+test html::html_parser::tests::parses_html_table_explicit_align_attribute_preserved ... ok
+test html::html_parser::tests::parses_heading_text_align_from_align_attribute ... ok
+test html::html_parser::tests::parses_paragraph_text_align_from_align_attribute ... ok
+test mermaid::tests::test_mermaid_font_family_resolves_zed_virtual_fonts ... ok
+test html::html_parser::tests::parses_html_table_spans ... ok
+test html::html_parser::tests::parses_html_styled_text ... ok
+test mermaid::tests::test_extract_mermaid_diagrams_with_tilde_fence ... ok
+test mermaid::tests::test_extract_mermaid_diagrams_parses_scale ... ok
+test html::html_parser::tests::prefers_style_text_align_over_align_attribute ... ok
+test html::html_parser::tests::parses_heading_text_align_from_style ... ok
+test html::html_parser::tests::parses_paragraph_text_align_from_style ... ok
+test mermaid::tests::test_parse_mermaid_info ... ok
+test mermaid::tests::test_unsupported_diagram_types_are_skipped ... ok
+test parser::tests::all_options_considered ... ok
+test mermaid::tests::test_mermaid_zoom_ticks_is_one_step_per_notch ... ok
+test parser::tests::test_br_prefixed_tag_is_not_a_hard_break ... ok
+test parser::tests::test_br_tag_emits_hard_break ... ok
+test parser::tests::test_br_tag_not_a_hard_break_without_parse_html ... ok
+test parser::tests::test_code_block_metadata ... ok
+test parser::tests::test_code_blocks_do_not_autolink_urls ... ok
+test parser::tests::test_extract_code_block_content_range ... ok
+test parser::tests::test_extract_code_content_range ... ok
+test parser::tests::test_footnote_definitions_multiple ... ok
+test parser::tests::test_footnotes ... ok
+test parser::tests::test_gfm_alert_block_quote_kinds ... ok
+test parser::tests::test_heading_slug_collision_with_dedup_suffix ... ok
+test parser::tests::test_heading_source_index_for_slug ... ok
+test parser::tests::test_html_comments ... ok
+test parser::tests::test_heading_slugs ... ok
+test parser::tests::test_inline_code_keeps_escaped_pipes_outside_tables ... ok
+test parser::tests::test_incomplete_link ... ok
+test parser::tests::test_links_split_across_fragments ... ok
+test parser::tests::test_metadata_block_text_is_verbatim ... ok
+test parser::tests::test_metadata_blocks_are_omitted_by_default ... ok
+test parser::tests::test_metadata_blocks_are_root_blocks ... ok
+test parser::tests::test_metadata_blocks_store_fallback_for_nested_yaml ... ok
+test parser::tests::test_metadata_blocks_store_table_rows ... ok
+test parser::tests::test_inline_code_substitutes_escaped_pipes ... ok
+test parser::tests::test_metadata_table_rows_reject_non_simple_colon_pairs ... ok
+test parser::tests::test_metadata_table_rows_parse_simple_colon_pairs ... ok
+test parser::tests::test_smart_punctuation ... ok
+test parser::tests::test_plain_urls_and_escaped_text ... ok
+test parser::tests::test_trim_metadata_range_returns_valid_empty_range ... ok
+test parser::tests::test_table_checkboxes_remain_text_in_cells ... ok
+test parser::tests::test_unrecognized_inline_html_preserved_as_inline_html ... ok
+test parser::tests::test_yaml_style_metadata_block ... ok
+test parser::tests::wanted_and_unwanted_options_disjoint ... ok
+test path_range::tests::test_linecol_parsing ... ok
+test path_range::tests::test_pathrange_from_str ... ok
+test path_range::tests::test_pathrange_leading_text_trimming ... ok
+test path_range::tests::test_pathrange_parsing ... ok
+test path_range::tests::test_pathrange_with_line_and_column ... ok
+test selection::tests::test_markdown_for_selection_links ... ok
+test selection::tests::test_markdown_for_selection_balances_inline_spans ... ok
+test selection::tests::test_markdown_for_selection_nested_spans ... ok
+test selection::tests::test_markdown_for_selection_plain_text_and_blocks ... ok
+test selection::tests::test_markdown_for_selection_scopes_to_boundary_blocks ... ok
+test selection::tests::test_root_block_index ... ok
+test selection::tests::test_selection_is_only_inside_code_spans ... ok
+test selection::tests::test_snap_out_of_delimiters ... ok
+test selection::tests::test_snap_out_of_delimiters_cascades_through_nested_spans ... ok
+test selection::tests::test_snap_to_char_boundaries ... ok
+test selection::tests::test_root_block_events_slices_each_block ... ok
+test mermaid::tests::test_mermaid_zoom_snap_and_clamp ... ok
+test mermaid::tests::test_mermaid_fallback_with_duplicate_blocks_edit_second ... ok
+test mermaid::tests::test_mermaid_fallback_on_edit ... ok
+test mermaid::tests::test_mermaid_fallback_chains_on_rapid_edits ... ok
+test mermaid::tests::test_mermaid_no_fallback_on_add_in_middle ... ok
+test tests::test_active_search_highlight_uses_match_index ... ok
+test mermaid::tests::test_mermaid_rerasterize_reuses_parsed_svg ... ok
+test mermaid::tests::test_mermaid_zoom_rerasterize_is_debounced ... ok
+test mermaid::tests::test_mermaid_zoom_to_fit_tracks_container_width ... ok
+test tests::test_capture_for_context_menu ... ok
+test html::html_rendering::tests::test_html_block_rendering_smoke ... ok
+test tests::test_bounds_for_source_range_returns_one_bound_per_soft_wrap_row ... ok
+test tests::test_bounds_for_source_range_skips_gaps_between_rendered_lines ... ok
+test tests::test_all_selection ... ok
+test html::html_rendering::tests::test_html_block_rendering_can_be_enabled ... ok
+test tests::test_break_in_tight_list_item_after_image_item_is_newline ... ok
+test tests::test_break_between_images_does_not_inject_leading_space ... ok
+test tests::test_clicking_image_fallback_inside_link_opens_link_url ... ok
+test tests::test_escape_leading_spaces ... ok
+test tests::test_escape_leading_tabs ... ok
+test tests::test_escape_multiline_diagnostic ... ok
+test tests::test_escape_newlines ... ok
+test tests::test_escape_non_ascii ... ok
+test tests::test_escape_output_len_matches_precomputed ... ok
+test tests::test_escape_plain_text ... ok
+test tests::test_escape_prevents_code_block ... ok
+test tests::test_escape_punctuation ... ok
+test tests::test_clicking_image_fallback_opens_image_url ... ok
+test tests::test_clicking_loaded_image_inside_link_opens_link_url ... ok
+test tests::test_code_block_controls_are_unique_across_markdown_entities ... ok
+test tests::test_code_span_link_ignores_code_inside_markdown_link ... ok
+test tests::test_code_span_link_ignores_code_without_callback ... ok
+test tests::test_context_menu_link_initial_state ... ok
+test tests::test_code_span_link_receives_decoded_inline_code ... ok
+test tests::test_code_span_link_ignores_code_when_mouse_interaction_is_prevented ... ok
+test tests::test_code_span_link_detected_for_source_index ... ok
+test tests::test_escaped_pipes_in_inline_code_inside_tables ... ok
+test tests::test_frontmatter_falls_back_to_code_block_for_nested_yaml ... ok
+test tests::test_code_block_line_height_tracks_overridden_code_font_size ... ok
+test tests::test_frontmatter_renders_without_delimiters ... ok
+test tests::test_hard_style_soft_break_after_image_moves_caption_to_next_row ... ok
+test tests::test_heading_font_sizes_are_distinct ... ok
+test tests::test_hard_break_in_text_paragraph_after_paragraph ... ok
+test tests::test_inline_br_renders_as_line_break ... ok
+test tests::test_non_rendered_source_ranges ... ok
+test tests::test_non_rendered_source_ranges_are_empty_while_parsing ... ok
+test tests::test_inline_code_chips_cover_exactly_the_code_span_glyphs ... ok
+test tests::test_non_rendered_source_ranges_for_image_between_link_text ... ok
+test tests::test_highlights_are_clipped_to_scrollable_code_block ... ok
+test tests::test_non_rendered_source_ranges_for_images ... ok
+test tests::test_non_rendered_source_ranges_for_reference_definitions ... ok
+test tests::test_non_rendered_source_ranges_for_linked_images ... ok
+test tests::test_inline_code_word_selection_excludes_backticks ... ok
+test tests::test_code_block_line_height_follows_buffer_line_height_setting ... ok
+test tests::test_link_for_source_index_ignores_plain_text ... ok
+test tests::test_link_detected_for_source_index ... ok
+test tests::test_source_range_for_rendered_handles_split_chunks ... ok
+test tests::test_mappings ... ok
+test tests::test_preview_body_font_size_is_rem_based ... ok
+test tests::test_selection_head_movement ... ok
+test tests::test_table_checkbox_detection ... ok
+test tests::test_table_checkbox_marker_source_range ... ok
+test tests::test_seshat_select_all_copy ... ok
+test tests::test_selection_with_markdown_formatting ... ok
+test tests::test_soft_break_after_image_does_not_insert_leading_space ... ok
+test tests::test_table_state_current_cell_alignment_centers_headers ... ok
+test tests::test_table_state_current_cell_alignment_outside_table ... ok
+test tests::test_soft_break_keeps_space_in_paragraph_with_image ... ok
+test tests::test_surrounding_word_range ... ok
+test tests::test_task_list_marker_for_item ... ok
+test tests::test_surrounding_line_range ... ok
+test tests::test_surrounding_word_range_respects_word_characters ... ok
+test tests::test_markdown_preview_follows_ui_font_size_setting_when_unset ... ok
+test tests::test_wrapped_code_block_has_no_scroll_handle ... ok
+test tests::test_table_column_selection ... ok
+test tests::test_url_hover_callback ... ok
+test tests::test_url_hover_callback_for_linked_image ... ok
+test tests::test_wide_table_scrolls_horizontally ... ok
+test tests::test_table_columns_are_sized_to_their_content ... ok
+test tests::test_word_selection_drag ... ok
+test tests::test_table_border_hugs_its_columns ... ok
+test tests::test_ui_zoom_does_not_affect_markdown_preview ... ok
+test tests::test_fallback_language_highlights_untagged_code_blocks ... ok
+test mermaid::tests::test_mermaid_zoom_retained_across_reparse ... ok
+test mermaid::tests::test_mermaid_scroll_handle_retained_across_reparse ... ok
+test mermaid::tests::test_mermaid_source_anchor_maps_inside_block ... ok
+test mermaid::tests::test_mermaid_rendering_replaces_code_block_text ... ok
+test tests::test_no_fallback_language_without_untagged_code_blocks ... ok
+test tests::test_table_never_renders_past_its_available_width ... ok
+
+test result: ok. 156 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running unittests src/markdown_preview.rs (target/debug/deps/markdown_preview-641b8778eeca4528)
+
+running 20 tests
+test markdown_preview_view::tests::filters_matches_in_non_rendered_link_source ... ok
+test markdown_preview_view::tests::filters_matches_regardless_of_match_order ... ok
+test markdown_preview_view::tests::resolves_workspace_absolute_preview_image_path_and_rejects_missing ... ok
+test markdown_preview_view::tests::resolves_workspace_relative_remote_image_in_source_worktree ... ok
+test markdown_preview_view::tests::resolves_remote_preview_image_with_different_client_path_style ... ok
+test markdown_preview_view::tests::opens_markdown_links_in_preview ... ok
+test markdown_preview_view::tests::opens_preview_file_links_at_positions ... ok
+test markdown_preview_view::tests::resolves_remote_preview_image_through_project ... ok
+test markdown_preview_view::tests::opening_preview_allows_copy_without_clicking_body ... ok
+test markdown_preview_view::tests::default_preview_stays_bound_to_invoking_editor_across_splits ... ok
+test markdown_preview_view::tests::close_and_return_to_editor_closes_preview_and_focuses_source_editor ... ok
+test markdown_preview_view::tests::preview_serialized_path_updates_when_source_file_is_renamed ... ok
+test markdown_preview_view::tests::force_closing_preview_preserves_source_editor_changes ... ok
+test markdown_preview_view::tests::close_and_return_to_editor_reopens_source_editor_when_editor_tab_was_closed ... ok
+test markdown_preview_view::tests::preview_opens_for_the_given_pane_not_the_focused_editor ... ok
+test markdown_preview_view::tests::follow_preview_serialized_path_updates_when_followed_editor_changes ... ok
+test markdown_preview_view::tests::derives_remote_preview_source_directory ... ok
+test markdown_preview_view::tests::scrolls_position_link_in_newly_created_preview ... ok
+test markdown_preview_view::tests::preview_uses_buffer_contents_instead_of_diff_contents ... ok
+test markdown_preview_view::tests::toggles_task_checkbox_and_saves_when_preview_is_active ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s
+
+     Running unittests src/lib.rs (target/debug/deps/release_channel-6a2d663a44faacd2)
+
+running 2 tests
+test tests::test_seshat_never_installs_upstream_updates ... ok
+test tests::test_docs_url_for_release_channel ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/seshat-ab1433f6df0b7a0d)
+
+running 67 tests
+test zed::open_listener::tests::test_open_options_for_behavior_always_new ... ok
+test zed::open_listener::tests::test_derive_paths_with_position_directory_with_position_like_name ... ok
+test zed::open_listener::tests::test_derive_paths_with_position_colon_in_name_reverts_on_unix ... ok
+test zed::open_listener::tests::test_open_options_for_request_respects_default_open_behavior ... ok
+test zed::open_listener::tests::test_parse_focus_app_url ... ok
+test zed::open_listener::tests::test_parse_git_clone_url ... ok
+test zed::open_listener::tests::test_e2e_no_flags_no_windows_no_prompt ... ok
+test zed::open_listener::tests::test_e2e_new_window_setting_opens_project_root_in_new_window ... ok
+test zed::open_listener::tests::test_e2e_prompt_user_picks_existing_window ... ok
+test zed::open_listener::tests::test_e2e_explicit_existing_flag_no_prompt ... ok
+test zed::open_listener::tests::test_e2e_new_window_setting_restores_workspace_when_no_paths ... ok
+test zed::open_listener::tests::test_e2e_paths_in_existing_workspace_no_prompt ... ok
+test zed::open_listener::tests::test_e2e_prompt_user_picks_new_window ... ok
+test zed::open_listener::tests::test_e2e_explicit_new_flag_no_prompt ... ok
+test zed::open_listener::tests::test_e2e_setting_already_configured_no_prompt ... ok
+test zed::open_listener::tests::test_e2e_new_window_setting_focuses_existing_window_for_subpaths ... ok
+test zed::open_listener::tests::test_e2e_explicit_new_flag_with_file_url_opens_new_window ... ok
+test zed::tests::test_action_namespaces ... ok
+test zed::open_listener::tests::test_parse_git_clone_url_without_slash ... ok
+test zed::open_listener::tests::test_parse_git_clone_url_with_encoding ... ok
+test zed::open_listener::tests::test_parse_git_commit_url ... ok
+test zed::open_listener::tests::test_parse_malformed_skill_install_url_errors ... ok
+test zed::open_listener::tests::test_reject_removed_workbench_urls ... ok
+test zed::tests::test_bundled_settings_and_themes ... ok
+test zed::tests::test_emacs_cursor_keys_do_not_fall_back_to_default_bindings ... ok
+test zed::tests::test_emacs_cursor_keys_keep_narrower_bindings ... ok
+test zed::open_listener::tests::test_wait_with_directory_waits_for_window_close ... ok
+test zed::open_listener::tests::test_open_workspace_with_directory ... ok
+test zed::tests::test_generate_keymap_json_schema_for_registered_actions ... ok
+test zed::open_listener::tests::test_open_workspace_with_nonexistent_files ... ok
+test zed::open_listener::tests::test_add_flag_prefers_focused_window ... ok
+test zed::tests::test_close_project_removes_project_group ... ok
+test zed::open_listener::tests::test_reuse_flag_functionality ... ok
+test zed::tests::test_close_project_switches_to_neighbor_in_multi_project ... ok
+test zed::tests::test_disable_ai_crash ... ok
+test zed::tests::test_disabled_keymap_binding ... ok
+test zed::tests::test_bundled_files_editor ... ok
+test zed::tests::test_base_keymap ... ok
+test zed::tests::test_invalid_global_tasks_file_shows_notification_on_startup ... ok
+test zed::tests::test_bundled_files_reuse_existing_editor ... ok
+test zed::tests::test_editor_zoom_with_scroll_wheel ... ok
+test zed::tests::test_opening_project_settings_when_excluded ... ok
+test zed::tests::test_open_non_existing_file ... ok
+test zed::tests::test_new_empty_workspace ... ok
+test zed::tests::test_open_paths_in_gitignored_dir_opens_new_workspace ... ok
+test zed::tests::test_multi_workspace_session_restore ... ok
+test zed::tests::test_removed_workbench_bindings_stay_removed ... ok
+test zed::tests::test_open_paths_action ... ok
+test zed::tests::test_open_file_in_many_spaces ... ok
+test zed::tests::test_open_add_new ... ok
+test zed::tests::test_opening_excluded_paths ... ok
+test zed::tests::test_window_edit_state_restoring_enabled ... ignored, This test has timing issues across platforms.
+test zed::tests::test_quit_preserves_focused_workspace_for_restore ... ok
+test zed::tests::test_open_paths_switches_to_best_workspace ... ok
+test zed::tests::test_pane_actions ... ok
+test zed::tests::test_open_paths ... ok
+test zed::tests::test_open_entry ... ok
+test zed::tests::test_restored_project_groups_survive_workspace_key_change ... ok
+test zed::tests::test_prefer_focused_window ... ok
+test zed::tests::test_save_conflicting_item ... ok
+test zed::tests::test_open_and_save_new_file ... ok
+test zed::tests::test_quit_checks_all_workspaces_for_dirty_items ... ok
+test zed::tests::test_window_edit_state_restoring_disabled ... ok
+test zed::tests::test_setting_language_when_saving_as_single_file_worktree ... ok
+test zed::tests::test_reopening_closed_items ... ok
+test zed::tests::test_navigation ... ok
+test zed::tests::test_bundled_languages ... ok
+
+test result: ok. 66 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.05s
+
+   Doc-tests markdown_preview
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests release_channel
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling workspace v0.1.0 (/Users/liuxianzhao/project/seshat/crates/workspace)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `workspace` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.25s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/workspace.rs (target/debug/deps/workspace-8abdbe78c5b3447e)
+
+running 1 test
+test multi_workspace_tests::test_legacy_ai_settings_cannot_restore_sidebar ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 259 filtered out; finished in 0.14s
+
+   Compiling workspace v0.1.0 (/Users/liuxianzhao/project/seshat/crates/workspace)
+   Compiling breadcrumbs v0.1.0 (/Users/liuxianzhao/project/seshat/crates/breadcrumbs)
+   Compiling editor v0.1.0 (/Users/liuxianzhao/project/seshat/crates/editor)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `editor` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.96s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/editor.rs (target/debug/deps/editor-07cbe8f7d7676b35)
+
+running 6 tests
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:03+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+test editor_tests::test_newline_respects_read_only ... ok
+test editor_tests::test_read_only_buffer_can_be_saved_as ... ok
+test editor_tests::test_merge_base_diff_hunks_are_read_only ... ok
+test editor_tests::test_save_actions_are_hidden_for_read_only_files ... ok
+test editor_tests::test_read_only_buffer_is_not_formatted_or_saved ... ok
+test editor_tests::test_format_and_save_skip_read_only_buffers_in_multi_buffer ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 932 filtered out; finished in 0.25s
+
+   Compiling workspace v0.1.0 (/Users/liuxianzhao/project/seshat/crates/workspace)
+   Compiling breadcrumbs v0.1.0 (/Users/liuxianzhao/project/seshat/crates/breadcrumbs)
+   Compiling picker v0.1.0 (/Users/liuxianzhao/project/seshat/crates/picker)
+   Compiling notifications v0.1.0 (/Users/liuxianzhao/project/seshat/crates/notifications)
+   Compiling panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/panel)
+   Compiling command_palette_hooks v0.1.0 (/Users/liuxianzhao/project/seshat/crates/command_palette_hooks)
+   Compiling editor v0.1.0 (/Users/liuxianzhao/project/seshat/crates/editor)
+   Compiling command_palette v0.1.0 (/Users/liuxianzhao/project/seshat/crates/command_palette)
+   Compiling picker_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/picker_preview)
+   Compiling git_ui_core v0.1.0 (/Users/liuxianzhao/project/seshat/crates/git_ui_core)
+   Compiling markdown_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/markdown_preview)
+   Compiling search v0.1.0 (/Users/liuxianzhao/project/seshat/crates/search)
+   Compiling outline v0.1.0 (/Users/liuxianzhao/project/seshat/crates/outline)
+   Compiling project_panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/project_panel)
+   Compiling git_ui v0.1.0 (/Users/liuxianzhao/project/seshat/crates/git_ui)
+   Compiling outline_panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/outline_panel)
+   Compiling vim v0.1.0 (/Users/liuxianzhao/project/seshat/crates/vim)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `vim` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.72s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/vim.rs (target/debug/deps/vim-f48c6e422ad0aac1)
+
+running 6 tests
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+[2026-09-07T03:14:21Z WARN  http_client] Using fake HTTP client with 404 response
+test normal::repeat::test::test_undo_repeated_insert ... ok
+test normal::test::test_undo_last_line_multicursor ... ok
+test normal::test::test_undo_last_line ... ok
+test normal::test::test_undo_last_line_newline ... ok
+test normal::test::test_undo_last_line_newline_many_changes ... ok
+test test::test_undo ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 557 filtered out; finished in 0.81s
+
+   Compiling search v0.1.0 (/Users/liuxianzhao/project/seshat/crates/search)
+   Compiling git_ui v0.1.0 (/Users/liuxianzhao/project/seshat/crates/git_ui)
+warning: unused import: `indoc::indoc`
+    --> crates/git_ui/src/git_panel.rs:8577:9
+     |
+8577 |     use indoc::indoc;
+     |         ^^^^^^^^^^^^
+     |
+     = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `git_ui` (lib test) generated 2 warnings (run `cargo fix --lib -p git_ui --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.53s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/git_ui.rs (target/debug/deps/git_ui-b3723da405f5545b)
+
+running 13 tests
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[33mWARN [0m [[1mhttp_client[0m] Using fake HTTP client with 404 response
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+test staged_diff::tests::test_staged_diff_restores_as_staged_diff ... ok
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+test staged_diff::tests::test_toggle_staged_unstages_from_staged_view ... ok
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+test git_panel::tests::test_group_by_staging_primary_action_stages_partially_staged_files ... ok
+test git_panel::tests::test_discard_tracked_changes_respects_staging ... ok
+test git_panel::tests::test_group_by_staging_section_membership_and_order ... ok
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+test git_panel::tests::test_stage_section_scopes_to_selected_section ... ok
+test git_panel::tests::test_resolved_conflict_is_locked_against_unstaging ... ok
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+test git_panel::tests::test_bulk_staging ... ok
+test git_panel::tests::test_staging_conflict_mark_resolved_transition ... ok
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+2026-09-07T11:14:32+08:00 [1m[31mERROR[0m [[1mcrates/git_ui/src/git_panel.rs:4327[0m] language not found
+test staged_diff::tests::test_staged_changes_deploy_as_a_separate_staged_diff_item ... ok
+test git_panel::tests::test_bulk_staging_with_sort_by_paths ... ok
+test project_diff::tests::test_project_diff_actions_filter_mixed_staged_and_unstaged_hunks ... ok
+test git_panel::tests::test_group_by_staging_open_diff_uses_section_diff ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.62s
+
+    Checking workspace v0.1.0 (/Users/liuxianzhao/project/seshat/crates/workspace)
+    Checking cli v0.1.0 (/Users/liuxianzhao/project/seshat/crates/cli)
+    Checking picker v0.1.0 (/Users/liuxianzhao/project/seshat/crates/picker)
+    Checking breadcrumbs v0.1.0 (/Users/liuxianzhao/project/seshat/crates/breadcrumbs)
+    Checking notifications v0.1.0 (/Users/liuxianzhao/project/seshat/crates/notifications)
+    Checking command_palette_hooks v0.1.0 (/Users/liuxianzhao/project/seshat/crates/command_palette_hooks)
+    Checking panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/panel)
+    Checking platform_title_bar v0.1.0 (/Users/liuxianzhao/project/seshat/crates/platform_title_bar)
+    Checking install_cli v0.1.0 (/Users/liuxianzhao/project/seshat/crates/install_cli)
+    Checking svg_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/svg_preview)
+    Checking ui_prompt v0.1.0 (/Users/liuxianzhao/project/seshat/crates/ui_prompt)
+    Checking editor v0.1.0 (/Users/liuxianzhao/project/seshat/crates/editor)
+    Checking open_path_prompt v0.1.0 (/Users/liuxianzhao/project/seshat/crates/open_path_prompt)
+    Checking command_palette v0.1.0 (/Users/liuxianzhao/project/seshat/crates/command_palette)
+    Checking theme_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/theme_selector)
+    Checking settings_profile_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/settings_profile_selector)
+    Checking which_key v0.1.0 (/Users/liuxianzhao/project/seshat/crates/which_key)
+    Checking picker_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/picker_preview)
+    Checking git_ui_core v0.1.0 (/Users/liuxianzhao/project/seshat/crates/git_ui_core)
+    Checking markdown_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/markdown_preview)
+    Checking encoding_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/encoding_selector)
+    Checking tabular_data_preview v0.1.0 (/Users/liuxianzhao/project/seshat/crates/tabular_data_preview)
+    Checking line_ending_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/line_ending_selector)
+    Checking image_viewer v0.1.0 (/Users/liuxianzhao/project/seshat/crates/image_viewer)
+    Checking recent_projects v0.1.0 (/Users/liuxianzhao/project/seshat/crates/recent_projects)
+    Checking go_to_line v0.1.0 (/Users/liuxianzhao/project/seshat/crates/go_to_line)
+    Checking language_selector v0.1.0 (/Users/liuxianzhao/project/seshat/crates/language_selector)
+    Checking tab_switcher v0.1.0 (/Users/liuxianzhao/project/seshat/crates/tab_switcher)
+    Checking search v0.1.0 (/Users/liuxianzhao/project/seshat/crates/search)
+    Checking outline v0.1.0 (/Users/liuxianzhao/project/seshat/crates/outline)
+    Checking lsp_locations v0.1.0 (/Users/liuxianzhao/project/seshat/crates/lsp_locations)
+    Checking file_finder v0.1.0 (/Users/liuxianzhao/project/seshat/crates/file_finder)
+    Checking git_ui v0.1.0 (/Users/liuxianzhao/project/seshat/crates/git_ui)
+    Checking project_panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/project_panel)
+    Checking outline_panel v0.1.0 (/Users/liuxianzhao/project/seshat/crates/outline_panel)
+    Checking keymap_editor v0.1.0 (/Users/liuxianzhao/project/seshat/crates/keymap_editor)
+    Checking vim v0.1.0 (/Users/liuxianzhao/project/seshat/crates/vim)
+    Checking zed v1.18.1 (/Users/liuxianzhao/project/seshat/crates/zed)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.95s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`

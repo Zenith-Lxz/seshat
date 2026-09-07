@@ -1,0 +1,36 @@
+{
+  "observed_at": "2026-09-07T03:11:38.475909+00:00",
+  "source_commit": "b823bcc",
+  "fixture": "/var/folders/gx/87529l5x6sg4pfndryn8g02c0000gn/T/seshat-core-qa-p4ak0hvd",
+  "results": {
+    "native_vim_delete_save_undo": "exact disk readback passed",
+    "find_replace": "beta to BETA, saved and read back",
+    "markdown_preview_immediate_copy": "all rendered blocks copied without clicking body; source SHA unchanged",
+    "log_edit_rejection": [
+      "app.log",
+      "archive.LOG.1"
+    ],
+    "git_stage_and_unstage": "native panel click with index readback; no remotes",
+    "dirty_close_cancel": "native confirmation, Cancel retained notes.txt",
+    "quit_and_restore": "normal quit; two unsaved drafts and all tabs restored using same persistent profile",
+    "cleanup": "Save All wrote both task-owned drafts; no remaining staged fixture changes"
+  },
+  "baseline_sha256": {
+    "daily.txt": "3cbc862c20e735ce24fb94d5b088654e28da192038e1c449dcd6d41b42d7ac2d",
+    "writing.md": "43b27c99b40279b5d3604a6703ba0154a588c749d1eb8ecaf7873e278bcf0b83",
+    "app.log": "f8ba49b9940398b407c84c65a6aaf8f33f112033e5e7a0a525987357b4a6b7ee",
+    "archive.LOG.1": "26d01f3bdcf69edd44e53e9792ca9b54da01f77f813b2df0161e9f7f161b4080",
+    "copy-target.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "notes.txt": "cad61079c2c6740e5d073fae5ee4f84ce3cd1dbff98215f7f5447381756cb1c9"
+  },
+  "final_sha256": {
+    "daily.txt": "da93da78908ddbfe1d39167935ddfb05ffba714708c9e6250e6365f4baebd004",
+    "writing.md": "43b27c99b40279b5d3604a6703ba0154a588c749d1eb8ecaf7873e278bcf0b83",
+    "app.log": "f8ba49b9940398b407c84c65a6aaf8f33f112033e5e7a0a525987357b4a6b7ee",
+    "archive.LOG.1": "26d01f3bdcf69edd44e53e9792ca9b54da01f77f813b2df0161e9f7f161b4080",
+    "copy-target.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "notes.txt": "b8f58f87c4311431fb245dfb4777173dc91a639599b08b66018554acf2a92eed"
+  },
+  "final_bundle_source": "0bf7466cd7d3137badb3a62ba2f1bb316946a5d1",
+  "final_bundle_observation": "Signed final app launched with the persistent profile, restored saved text/tabs, and showed updated folder-settings prompt without MCP/LSP claims."
+}

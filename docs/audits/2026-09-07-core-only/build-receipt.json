@@ -1,0 +1,13 @@
+{
+  "built_at": "2026-09-07T03:18:09.872230+00:00",
+  "source_commit": "0bf7466cd7d3137badb3a62ba2f1bb316946a5d1",
+  "source_status": " M .lattice/lattice\n M .lattice/spec/seshat-foundation.md\n M AGENTS.md\n M docs/audits/2026-09-07-core-only/README.md\n?? docs/audits/2026-09-07-core-only/copied-markdown.txt\n?? docs/audits/2026-09-07-core-only/dirty-close-confirmation.png\n?? docs/audits/2026-09-07-core-only/git-staged.png\n?? docs/audits/2026-09-07-core-only/native-acceptance.json\n?? docs/audits/2026-09-07-core-only/preview-copy.png\n?? docs/audits/2026-09-07-core-only/read-only-log.png\n?? docs/audits/2026-09-07-core-only/restored-daily-draft.png\n?? docs/audits/2026-09-07-core-only/restored-notes-draft.png\n",
+  "profile": "release-fast",
+  "bundle": "/Users/liuxianzhao/project/seshat/target/seshat-bundle/Seshat.app",
+  "identifier": "dev.seshat.editor",
+  "version": "1.18.1",
+  "signing": "local ad-hoc; not notarized",
+  "limits": "Requires local Git for Git features. Native-window acceptance is a separate step.",
+  "bundle_bytes": 184790645,
+  "executable_sha256": "cc75541d895e87a962980cd767e183d67e58295be485d79ee8d8ea3180a1dafb"
+}
