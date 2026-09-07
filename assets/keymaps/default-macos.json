@@ -154,7 +154,7 @@
       "cmd-enter": "editor::NewlineBelow",
       "cmd-shift-enter": "editor::NewlineAbove",
       "cmd-k z": "editor::ToggleSoftWrap",
-      "cmd-f": "buffer_search::Deploy",
+      "cmd-f": "seshat_search::CurrentFile",
       "cmd-alt-l": ["buffer_search::Deploy", { "selection_search_enabled": true }],
       "cmd-e": "buffer_search::UseSelectionForFind",
 
@@ -223,7 +223,7 @@
       "shift-enter": "search::SelectPreviousMatch",
       "cmd-shift-enter": "editor::ToggleFoldAll",
       "alt-enter": "search::SelectAllMatches",
-      "cmd-f": "search::FocusSearch",
+      "cmd-f": "seshat_search::CurrentFile",
       "cmd-alt-l": "search::ToggleSelection",
       "cmd-shift-o": "outline::Toggle",
       "alt-cmd-f": "text_finder::Toggle",
@@ -266,7 +266,7 @@
       "escape": "project_search::ToggleFocus",
       "cmd-shift-j": "project_search::ToggleFilters",
       "cmd-shift-enter": "project_search::ToggleAllSearchResults",
-      "cmd-shift-f": "search::FocusSearch",
+      "cmd-shift-f": "seshat_search::AllFiles",
       "cmd-shift-h": "search::ToggleReplace",
       "alt-cmd-g": "search::ToggleRegex",
       "alt-cmd-x": "search::ToggleRegex",
@@ -325,7 +325,7 @@
       "cmd-k u": ["pane::CloseCleanItems", { "close_pinned": false }],
       "cmd-k w": ["pane::CloseAllItems", { "close_pinned": false }],
       "cmd-k cmd-w": "workspace::CloseAllItemsAndPanes",
-      "cmd-f": "project_search::ToggleFocus",
+      "cmd-f": "seshat_search::CurrentFile",
       "cmd-g": "search::SelectNextMatch",
       "cmd-shift-g": "search::SelectPreviousMatch",
       "cmd-shift-h": "search::ToggleReplace",
@@ -448,13 +448,14 @@
       "ctrl-0": "pane::ActivateLastItem",
       "ctrl--": "pane::GoBack",
       "ctrl-_": "pane::GoForward",
-      "cmd-shift-f": "pane::DeploySearch",
+      "cmd-shift-f": "seshat_search::AllFiles",
     },
   },
   {
     "context": "Workspace",
     "use_key_equivalents": true,
     "bindings": {
+      "cmd-f": "seshat_search::CurrentFile",
       // Move focus between the major regions of the window (editor, open
       // panels, status bar). Accessibility navigation; mirrors VS Code's
       // "Focus Next/Previous Part". `cmd-f6` mirrors `f6` so region navigation
@@ -497,7 +498,7 @@
       "ctrl-alt-)": "workspace::ResetOpenDocksSize",
       "ctrl-alt-_": ["workspace::DecreaseOpenDocksSize", { "px": 0 }],
       "ctrl-alt-+": ["workspace::IncreaseOpenDocksSize", { "px": 0 }],
-      "cmd-shift-f": "pane::DeploySearch",
+      "cmd-shift-f": "seshat_search::AllFiles",
       "cmd-shift-h": ["pane::DeploySearch", { "replace_enabled": true }],
       "cmd-shift-t": "pane::ReopenClosedItem",
       "cmd-k cmd-p": "workspace::ReopenLastPicker",
@@ -936,14 +937,14 @@
       "cmd-up": "markdown::ScrollToTop",
       "cmd-down": "markdown::ScrollToBottom",
       "cmd-shift-v": "markdown::CloseAndReturnToEditor",
-      "cmd-f": "buffer_search::Deploy",
+      "cmd-f": "seshat_search::CurrentFile",
     },
   },
   {
     "context": "KeymapEditor",
     "use_key_equivalents": true,
     "bindings": {
-      "cmd-f": "search::FocusSearch",
+      "cmd-f": "seshat_search::CurrentFile",
       "cmd-alt-f": "keymap_editor::ToggleKeystrokeSearch",
       "cmd-alt-c": "keymap_editor::ToggleConflictFilter",
       "enter": "keymap_editor::EditBinding",
@@ -1020,7 +1021,7 @@
       "cmd-w": "workspace::CloseWindow",
       "escape": "workspace::CloseWindow",
 
-      "cmd-f": "search::FocusSearch",
+      "cmd-f": "seshat_search::CurrentFile",
 
       // todo(settings_ui): cut this down based on the max files and overflow UI
 
@@ -1090,5 +1091,14 @@
       "shift-tab": "git_graph::FocusPreviousTabStop",
     },
   },
-
+  {
+    "context": "SeshatSearch > Editor",
+    "use_key_equivalents": true,
+    "bindings": {
+      "enter": "menu::Confirm",
+      "escape": "menu::Cancel",
+      "cmd-f": "seshat_search::CurrentFile",
+      "cmd-shift-f": "seshat_search::AllFiles"
+    }
+  }
 ]

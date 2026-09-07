@@ -5125,6 +5125,7 @@ mod tests {
                 "recent_projects",
                 "remote_debug",
                 "search",
+                "seshat_search",
                 "settings_profile_selector",
                 "stash_picker",
                 "svg",

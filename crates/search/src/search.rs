@@ -21,6 +21,7 @@ pub mod buffer_search;
 pub mod project_search;
 pub(crate) mod search_bar;
 pub mod search_status_button;
+pub mod seshat_search;
 pub mod text_finder;
 
 pub fn init(cx: &mut App) {
@@ -28,6 +29,7 @@ pub fn init(cx: &mut App) {
     buffer_search::init(cx);
     project_search::init(cx);
     text_finder::init(cx);
+    seshat_search::init(cx);
 }
 
 actions!(

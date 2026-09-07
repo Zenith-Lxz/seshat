@@ -45,4 +45,5 @@ cargo test --locked -p workspace test_legacy_ai_settings_cannot_restore_sidebar
 cargo test --locked -p editor read_only
 cargo test --locked -p vim test_undo
 cargo test --locked -p git_ui stag
+cargo test --locked -p search -p project_panel test_seshat
 cargo check --locked -p zed

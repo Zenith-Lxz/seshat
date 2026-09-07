@@ -138,8 +138,8 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                 MenuItem::action("Copy and Trim", editor::actions::CopyAndTrim),
                 MenuItem::os_action("Paste", editor::actions::Paste, OsAction::Paste),
                 MenuItem::separator(),
-                MenuItem::action("Find", search::buffer_search::Deploy::find()),
-                MenuItem::action("Find in Project", workspace::DeploySearch::default()),
+                MenuItem::action("Find", search::seshat_search::CurrentFile),
+                MenuItem::action("Find in All Files", search::seshat_search::AllFiles),
                 MenuItem::separator(),
                 MenuItem::action(
                     "Toggle Line Comment",

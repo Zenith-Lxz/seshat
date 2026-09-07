@@ -5,11 +5,11 @@
 
 A focused macOS editor for local files, built on Zed's editor and GPUI. Open a folder, edit text or Markdown, browse logs, and use Git when needed.
 
-- Fast text editing with syntax colors, tabs, splits, search, undo and Vim.
-- Markdown source editing and a readable preview with rendered-text selection and copy.
+- Fast text editing with syntax colors, splits, undo and Vim.
+- Markdown Edit/Preview modes with one source buffer, preserved undo, and rendered-text selection/copy.
 - Read-only `.log` files and numeric rotated logs by default.
-- File tree, outline, local project search, and optional Git changes/history/commits.
-- Quiet light and dark themes, with a small settings panel for appearance, text size, Vim, line wrapping and Git.
+- Separate project and standalone file trees, an outline, bottom search (Cmd+F / Cmd+Shift+F), and optional Git changes/history/commits.
+- Classic Seshat graphite and warm-paper themes, with a small settings panel for appearance, text size, Vim, line wrapping and Git.
 
 AI providers and agents, collaboration UI, remote workspaces, containers, integrated terminal, debugger UI, notebooks, extension installation and upstream update infrastructure are removed from the application. Shared low-level editor interfaces are described in [the product contract](.lattice/spec/seshat-foundation.md).
 

@@ -44,47 +44,84 @@ impl TitleBar {
 
 impl Render for TitleBar {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let title = self
+        let (title, directory) = self
             .workspace
             .upgrade()
-            .and_then(|workspace| {
-                workspace
-                    .read(cx)
-                    .project()
-                    .read(cx)
-                    .visible_worktrees(cx)
-                    .next()
-                    .map(|worktree| worktree.read(cx).root_name().to_string())
+            .map(|workspace| {
+                let workspace = workspace.read(cx);
+                if let Some(item) = workspace.active_item(cx) {
+                    let absolute = item.project_path(cx).and_then(|path| {
+                        workspace
+                            .project()
+                            .read(cx)
+                            .worktree_for_id(path.worktree_id, cx)
+                            .map(|tree| tree.read(cx).absolutize(&path.path))
+                    });
+                    if let Some(absolute) = absolute {
+                        let name = absolute
+                            .file_name()
+                            .map(|name| name.to_string_lossy().into_owned())
+                            .unwrap_or_default();
+                        let directory = absolute
+                            .parent()
+                            .map(|parent| parent.to_string_lossy().into_owned())
+                            .unwrap_or_default();
+                        return (
+                            format!("{}{}", name, if item.is_dirty(cx) { " •" } else { "" }),
+                            directory,
+                        );
+                    }
+                    return (
+                        format!(
+                            "{}{}",
+                            item.tab_content_text(0, cx),
+                            if item.is_dirty(cx) { " •" } else { "" }
+                        ),
+                        String::new(),
+                    );
+                }
+                ("Seshat".into(), String::new())
             })
-            .unwrap_or_else(|| "Seshat".into());
+            .unwrap_or_else(|| ("Seshat".into(), String::new()));
         let controls = h_flex()
             .gap_2()
             .h_full()
             .child(
-                IconButton::new("open-file", IconName::FolderOpen)
+                IconButton::new("toggle-files", IconName::FileTree)
                     .icon_size(IconSize::Small)
                     .style(ButtonStyle::Subtle)
-                    .tooltip(|_, cx| {
-                        Tooltip::for_action("Open File or Folder", &workspace::Open::default(), cx)
-                    })
+                    .tooltip(Tooltip::text("显示侧边栏"))
+                    .on_click(|_, window, cx| {
+                        window.dispatch_action(Box::new(workspace::ToggleLeftDock), cx)
+                    }),
+            )
+            .child(
+                IconButton::new("open-file", IconName::File)
+                    .icon_size(IconSize::Small)
+                    .style(ButtonStyle::Subtle)
+                    .tooltip(Tooltip::text("打开文件"))
                     .on_click(|_, window, cx| {
                         window.dispatch_action(Box::new(workspace::Open::default()), cx)
                     }),
             )
-            .child(Label::new(title).size(LabelSize::Small).color(Color::Muted))
-            .into_any_element();
-        let sidebar = IconButton::new("toggle-files", IconName::FileTree)
-            .icon_size(IconSize::Small)
-            .style(ButtonStyle::Subtle)
-            .tooltip(|_, cx| {
-                Tooltip::for_action("Files", &zed_actions::project_panel::ToggleFocus, cx)
-            })
-            .on_click(|_, window, cx| {
-                window.dispatch_action(Box::new(zed_actions::project_panel::ToggleFocus), cx)
-            })
+            .child(
+                IconButton::new("open-folder", IconName::FolderOpen)
+                    .icon_size(IconSize::Small)
+                    .style(ButtonStyle::Subtle)
+                    .tooltip(Tooltip::text("打开文件夹"))
+                    .on_click(|_, window, cx| {
+                        window.dispatch_action(Box::new(workspace::AddFolderToProject), cx)
+                    }),
+            )
+            .child(Label::new(title).size(LabelSize::Small))
+            .child(
+                Label::new(directory)
+                    .size(LabelSize::Small)
+                    .color(Color::Muted),
+            )
             .into_any_element();
         self.platform
-            .update(cx, |platform, _| platform.set_children([controls, sidebar]));
+            .update(cx, |platform, _| platform.set_children([controls]));
         self.platform.clone()
     }
 }

@@ -23,7 +23,7 @@ Fork: [Zenith-Lxz/seshat](https://github.com/Zenith-Lxz/seshat). Local product b
 
 ## Boundaries
 
-Zed's Markdown preview is a separate rendered view. Choosing Zed does not deliver Typora-style in-place writing. Its normal file buffer also does not establish bounded loading, tailing and filtering of very large logs. These remain explicit product work with their own real-window acceptance.
+The owner changed the Markdown direction on 2026-09-07 to explicit editing and preview modes; Typora-style in-place writing and continuous preview are no longer pending work. Both modes must share the original buffer and undo state. The normal file buffer still does not establish bounded loading, tailing and filtering of very large logs; that capability requires separate implementation and native acceptance.
 
 Do not copy another project's whole editor into GPUI to close those gaps without a focused prototype and a source-preservation test. Markdown remains authoritative text. Any future block-based writing layer must retain undo, cursor stability, IME, copy semantics and unchanged source outside the user's edit.
 

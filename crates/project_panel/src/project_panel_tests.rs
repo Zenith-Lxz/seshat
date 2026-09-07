@@ -11305,9 +11305,16 @@ async fn test_focus_follows_mouse_into_blank_area(cx: &mut gpui::TestAppContext)
         );
     });
 
-    // Hover over the blank space below the last entry in the project panel,
-    // which lives in the right dock by default.
-    cx.simulate_mouse_move(point(px(1800.), px(600.)), None, Modifiers::none());
+    let mouse_position = panel.update_in(cx, |panel, window, cx| {
+        let midpoint = panel.default_size(window, cx) / 2.;
+        let x = match panel.position(window, cx) {
+            DockPosition::Left => midpoint,
+            DockPosition::Right => window.viewport_size().width - midpoint,
+            DockPosition::Bottom => unreachable!("project panel is a side panel"),
+        };
+        point(x, window.viewport_size().height * 0.6)
+    });
+    cx.simulate_mouse_move(mouse_position, None, Modifiers::none());
     cx.executor().advance_clock(Duration::from_millis(200));
     cx.run_until_parked();
 
@@ -11620,4 +11627,93 @@ async fn test_restore_file_prompt_escapes_markdown_in_file_name(cx: &mut gpui::T
         .expect("restore should show a confirmation prompt");
 
     assert_eq!(message, "Discard changes to `__init__.py`?");
+}
+
+#[gpui::test]
+async fn test_seshat_standalone_close_keeps_cancelled_buffer_and_never_deletes_file(
+    cx: &mut TestAppContext,
+) {
+    init_test_with_editor(cx);
+    let fs = FakeFs::new(cx.executor());
+    fs.insert_tree(
+        "/fixtures",
+        json!({"project": {"same.txt": "project"}, "same.txt": "original"}),
+    )
+    .await;
+    let project = Project::test(
+        fs.clone(),
+        ["/fixtures/same.txt".as_ref(), "/fixtures/project".as_ref()],
+        cx,
+    )
+    .await;
+    let window = cx.add_window(|window, cx| MultiWorkspace::test_new(project.clone(), window, cx));
+    let workspace = window
+        .read_with(cx, |multi, _| multi.workspace().clone())
+        .unwrap();
+    let cx = &mut VisualTestContext::from_window(window.into(), cx);
+    let panel = workspace.update_in(cx, ProjectPanel::new);
+    let item = workspace
+        .update_in(cx, |workspace, window, cx| {
+            workspace.open_abs_path("/fixtures/same.txt".into(), Default::default(), window, cx)
+        })
+        .await
+        .unwrap();
+    let editor = item.downcast::<Editor>().unwrap();
+    cx.run_until_parked();
+    let (standalone_id, directory_id) = project.read_with(cx, |project, cx| {
+        let trees = project.visible_worktrees(cx).collect::<Vec<_>>();
+        (trees[0].read(cx).id(), trees[1].read(cx).id())
+    });
+    panel.read_with(cx, |panel, _| {
+        assert_eq!(panel.state.visible_entries[0].worktree_id, directory_id);
+        assert_eq!(panel.state.visible_entries[1].worktree_id, standalone_id);
+        assert_eq!(panel.project_entry_count(), 2);
+    });
+    editor.update_in(cx, |editor, window, cx| {
+        editor.set_text("unsaved", window, cx)
+    });
+    let close = panel.update_in(cx, |panel, window, cx| {
+        panel.close_standalone_file(standalone_id, window, cx)
+    });
+    cx.run_until_parked();
+    assert!(cx.has_pending_prompt());
+    cx.simulate_prompt_answer("Cancel");
+    close.await.unwrap();
+    assert!(project.read_with(cx, |project, cx| {
+        project.worktree_for_id(standalone_id, cx).is_some()
+    }));
+    editor.read_with(cx, |editor, cx| {
+        assert_eq!(editor.buffer().read(cx).read(cx).text(), "unsaved")
+    });
+    let close = panel.update_in(cx, |panel, window, cx| {
+        panel.close_standalone_file(standalone_id, window, cx)
+    });
+    cx.run_until_parked();
+    cx.simulate_prompt_answer("Save");
+    close.await.unwrap();
+    assert_eq!(
+        fs.load(Path::new("/fixtures/same.txt")).await.unwrap(),
+        "unsaved"
+    );
+    assert!(project.read_with(cx, |project, cx| {
+        project.worktree_for_id(standalone_id, cx).is_none()
+    }));
+    assert!(project.read_with(cx, |project, cx| {
+        project.worktree_for_id(directory_id, cx).is_some()
+    }));
+    assert_eq!(
+        fs.load(Path::new("/fixtures/project/same.txt"))
+            .await
+            .unwrap(),
+        "project"
+    );
+    panel
+        .update_in(cx, |panel, window, cx| {
+            panel.close_standalone_file(directory_id, window, cx)
+        })
+        .await
+        .unwrap();
+    assert!(project.read_with(cx, |project, cx| {
+        project.worktree_for_id(directory_id, cx).is_some()
+    }));
 }

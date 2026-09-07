@@ -920,6 +920,7 @@ struct ActionFetchReady {
 /// See the [module level documentation](self) for more information.
 pub struct Editor {
     focus_handle: FocusHandle,
+    content_view: Option<(gpui::AnyView, FocusHandle)>,
     last_focused_descendant: Option<WeakFocusHandle>,
     /// The text buffer being edited
     buffer: Entity<MultiBuffer>,
@@ -2261,6 +2262,7 @@ impl Editor {
 
         let mut editor = Self {
             focus_handle,
+            content_view: None,
             show_cursor_when_unfocused: false,
             last_focused_descendant: None,
             buffer: multi_buffer.clone(),
@@ -12002,13 +12004,48 @@ impl EventEmitter<EditorEvent> for Editor {}
 
 impl Focusable for Editor {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
-        self.focus_handle.clone()
+        self.content_view
+            .as_ref()
+            .map(|(_, focus)| focus.clone())
+            .unwrap_or_else(|| self.focus_handle.clone())
     }
 }
 
 impl Render for Editor {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        EditorElement::new(&cx.entity(), self.create_style(cx))
+        if let Some((view, _)) = &self.content_view {
+            view.clone().into_any_element()
+        } else {
+            EditorElement::new(&cx.entity(), self.create_style(cx)).into_any_element()
+        }
+    }
+}
+
+impl Editor {
+    pub fn has_content_view(&self) -> bool {
+        self.content_view.is_some()
+    }
+    pub fn content_view<T: Render>(&self) -> Option<Entity<T>> {
+        self.content_view.as_ref()?.0.clone().downcast::<T>().ok()
+    }
+
+    pub fn set_content_view<V: Render + Focusable>(
+        &mut self,
+        view: Entity<V>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let focus = view.focus_handle(cx);
+        self.content_view = Some((view.into(), focus.clone()));
+        focus.focus(window, cx);
+        cx.notify();
+    }
+
+    pub fn clear_content_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.content_view.take().is_some() {
+            self.focus_handle.focus(window, cx);
+            cx.notify();
+        }
     }
 }
 

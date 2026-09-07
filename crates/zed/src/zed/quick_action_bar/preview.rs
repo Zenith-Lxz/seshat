@@ -3,7 +3,8 @@ use gpui::{AnyElement, Entity, Modifiers};
 use markdown_preview::markdown_preview_view::MarkdownPreviewView;
 use svg_preview::svg_preview_view::SvgPreviewView;
 use tabular_data_preview::TabularDataPreviewPane;
-use ui::{Tooltip, prelude::*, text_for_keystroke};
+use ui::{Toggleable, Tooltip, prelude::*, text_for_keystroke};
+use util::ResultExt;
 
 use super::QuickActionBar;
 
@@ -36,6 +37,42 @@ impl QuickActionBar {
         } else {
             return None;
         };
+
+        if let PreviewTarget::Markdown(editor) = &preview_target {
+            let previewing = editor.read(cx).has_content_view();
+            let editor_for_edit = editor.clone();
+            let editor_for_preview = editor.clone();
+            let workspace = self.workspace.clone();
+            return Some(
+                h_flex()
+                    .gap_1()
+                    .child(
+                        Button::new("markdown-edit-mode", "编辑")
+                            .toggle_state(!previewing)
+                            .on_click(move |_, window, cx| {
+                                editor_for_edit
+                                    .update(cx, |editor, cx| editor.clear_content_view(window, cx));
+                            }),
+                    )
+                    .child(
+                        Button::new("markdown-preview-mode", "预览")
+                            .toggle_state(previewing)
+                            .on_click(move |_, window, cx| {
+                                workspace
+                                    .update(cx, |workspace, cx| {
+                                        MarkdownPreviewView::show_preview_mode(
+                                            workspace,
+                                            editor_for_preview.clone(),
+                                            window,
+                                            cx,
+                                        );
+                                    })
+                                    .log_err();
+                            }),
+                    )
+                    .into_any_element(),
+            );
+        }
 
         let (button_id, tooltip_text, open_action_for_tooltip) = match &preview_target {
             PreviewTarget::Markdown(_) => (

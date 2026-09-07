@@ -76,6 +76,7 @@ use workspace::{
     SelectedEntry, SplitDirection, Workspace, WorkspaceSettings,
     dock::{DockPosition, Panel, PanelEvent},
     focus_follows_mouse::FocusFollowsMouse as _,
+    item::ItemHandle,
     notifications::{DetachAndPromptErr, NotifyResultExt, NotifyTaskExt},
 };
 use worktree::CreatedEntry;
@@ -93,6 +94,7 @@ const PROJECT_PANEL_KEY: &str = "ProjectPanel";
 const NEW_ENTRY_ID: ProjectEntryId = ProjectEntryId::MAX;
 
 struct VisibleEntriesForWorktree {
+    is_standalone: bool,
     worktree_id: WorktreeId,
     entries: Vec<GitEntry>,
     index: OnceCell<HashSet<Arc<RelPath>>>,
@@ -139,6 +141,7 @@ pub struct ProjectPanel {
     fs: Arc<dyn Fs>,
     focus_handle: FocusHandle,
     scroll_handle: UniformListScrollHandle,
+    standalone_scroll_handle: UniformListScrollHandle,
     // An update loop that keeps incrementing/decrementing scroll offset while there is a dragged entry that's
     // hovered over the start/end of a list.
     hover_scroll_task: Option<Task<()>>,
@@ -837,6 +840,11 @@ impl ProjectPanel {
             })
             .detach();
 
+            if let Some(workspace) = workspace.weak_handle().upgrade() {
+                cx.subscribe(&workspace, |_, _, _: &workspace::Event, cx| cx.notify())
+                    .detach();
+            }
+
             let scroll_handle = UniformListScrollHandle::new();
             let weak_project_panel = cx.weak_entity();
             let mut this = Self {
@@ -858,6 +866,7 @@ impl ProjectPanel {
                 diagnostic_counts: Default::default(),
                 diagnostic_summary_update: Task::ready(()),
                 scroll_handle,
+                standalone_scroll_handle: UniformListScrollHandle::new(),
                 mouse_down: false,
                 hover_expand_task: None,
                 previous_drag_position: None,
@@ -2967,16 +2976,16 @@ impl ProjectPanel {
         cx: &mut Context<Self>,
     ) {
         if let Some((_, _, index)) = self.selection.and_then(|s| self.index_for_selection(s)) {
-            self.scroll_handle
-                .scroll_to_item_strict(index, ScrollStrategy::Center);
+            let (handle, index) = self.tree_scroll_position(index);
+            handle.scroll_to_item_strict(index, ScrollStrategy::Center);
             cx.notify();
         }
     }
 
     fn scroll_cursor_top(&mut self, _: &ScrollCursorTop, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((_, _, index)) = self.selection.and_then(|s| self.index_for_selection(s)) {
-            self.scroll_handle
-                .scroll_to_item_strict(index, ScrollStrategy::Top);
+            let (handle, index) = self.tree_scroll_position(index);
+            handle.scroll_to_item_strict(index, ScrollStrategy::Top);
             cx.notify();
         }
     }
@@ -2988,8 +2997,8 @@ impl ProjectPanel {
         cx: &mut Context<Self>,
     ) {
         if let Some((_, _, index)) = self.selection.and_then(|s| self.index_for_selection(s)) {
-            self.scroll_handle
-                .scroll_to_item_strict(index, ScrollStrategy::Bottom);
+            let (handle, index) = self.tree_scroll_position(index);
+            handle.scroll_to_item_strict(index, ScrollStrategy::Bottom);
             cx.notify();
         }
     }
@@ -3320,9 +3329,103 @@ impl ProjectPanel {
         }
     }
 
+    fn untitled_items(&self, cx: &App) -> Vec<Box<dyn ItemHandle>> {
+        self.workspace
+            .upgrade()
+            .map(|workspace| {
+                workspace
+                    .read(cx)
+                    .items(cx)
+                    .filter(|item| {
+                        item.project_path(cx).is_none()
+                            && item.downcast::<Editor>().is_some_and(|editor| {
+                                editor.read(cx).buffer().read(cx).as_singleton().is_some()
+                            })
+                    })
+                    .map(|item| item.boxed_clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn render_untitled_items(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        self.untitled_items(cx)
+            .into_iter()
+            .map(|item| {
+                let title = item.tab_content_text(0, cx);
+                let id = item.item_id();
+                let open_item = item.boxed_clone();
+                h_flex()
+                    .id(("untitled-file", id))
+                    .h_7()
+                    .px_2()
+                    .gap_2()
+                    .cursor_pointer()
+                    .child(Icon::new(IconName::File).size(IconSize::Small))
+                    .child(Label::new(title).single_line())
+                    .when(item.is_dirty(cx), |view| {
+                        view.child(Label::new("•").color(Color::Muted))
+                    })
+                    .child(div().flex_1())
+                    .child(
+                        IconButton::new(("close-untitled", id), IconName::Close)
+                            .icon_size(IconSize::Small)
+                            .tooltip(Tooltip::text("关闭文件"))
+                            .on_click(cx.listener(move |panel, _, window, cx| {
+                                cx.stop_propagation();
+                                panel
+                                    .workspace
+                                    .update(cx, |workspace, cx| {
+                                        if let Some(pane) = workspace.pane_for(item.as_ref()) {
+                                            pane.update(cx, |pane, cx| {
+                                                pane.close_item_by_id(
+                                                    id,
+                                                    workspace::SaveIntent::Close,
+                                                    window,
+                                                    cx,
+                                                )
+                                            })
+                                            .detach_and_log_err(cx);
+                                        }
+                                    })
+                                    .log_err();
+                            })),
+                    )
+                    .on_click(cx.listener(move |panel, _, window, cx| {
+                        panel
+                            .workspace
+                            .update(cx, |workspace, cx| {
+                                workspace.activate_item(open_item.as_ref(), true, true, window, cx)
+                            })
+                            .log_err();
+                    }))
+                    .into_any_element()
+            })
+            .collect()
+    }
+
+    fn project_entry_count(&self) -> usize {
+        self.state
+            .visible_entries
+            .iter()
+            .take_while(|tree| !tree.is_standalone)
+            .map(|tree| tree.entries.len())
+            .sum()
+    }
+
+    fn tree_scroll_position(&self, index: usize) -> (&UniformListScrollHandle, usize) {
+        let project_count = self.project_entry_count();
+        if index >= project_count {
+            (&self.standalone_scroll_handle, index - project_count)
+        } else {
+            (&self.scroll_handle, index)
+        }
+    }
+
     fn autoscroll(&mut self, cx: &mut Context<Self>) {
         if let Some((_, _, index)) = self.selection.and_then(|s| self.index_for_selection(s)) {
-            self.scroll_handle.scroll_to_item_with_offset(
+            let (handle, index) = self.tree_scroll_position(index);
+            handle.scroll_to_item_with_offset(
                 index,
                 ScrollStrategy::Center,
                 self.sticky_items_count,
@@ -3800,6 +3903,86 @@ impl ProjectPanel {
             self.project
                 .update(cx, |project, cx| project.reveal_path(&path, cx));
         }
+    }
+
+    fn close_standalone_file(
+        &mut self,
+        worktree_id: WorktreeId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Task<anyhow::Result<()>> {
+        let Some(tree) = self.project.read(cx).worktree_for_id(worktree_id, cx) else {
+            return Task::ready(Ok(()));
+        };
+        let Some(root) = tree.read(cx).root_entry().filter(|entry| entry.is_file()) else {
+            return Task::ready(Ok(()));
+        };
+        let project_path = ProjectPath {
+            worktree_id,
+            path: root.path.clone(),
+        };
+        let workspace = self.workspace.clone();
+        cx.spawn_in(window, async move |panel, cx| {
+            let panes = workspace.read_with(cx, |workspace, _| workspace.panes().to_vec())?;
+            for pane in panes {
+                let close = pane.update_in(cx, |pane, window, cx| {
+                    let ids = pane
+                        .items()
+                        .filter(|item| {
+                            item.project_path(cx).as_ref() == Some(&project_path)
+                                || item.act_as::<Editor>(cx).is_some_and(|editor| {
+                                    editor.project_path(cx).as_ref() == Some(&project_path)
+                                })
+                        })
+                        .map(|item| item.item_id())
+                        .collect::<Vec<_>>();
+                    pane.close_items(window, cx, workspace::SaveIntent::Close, &|id| {
+                        ids.contains(&id)
+                    })
+                })?;
+                close.await?;
+                let cancelled = pane.read_with(cx, |pane, cx| {
+                    pane.items().any(|item| {
+                        item.project_path(cx).as_ref() == Some(&project_path)
+                            || item.act_as::<Editor>(cx).is_some_and(|editor| {
+                                editor.project_path(cx).as_ref() == Some(&project_path)
+                            })
+                    })
+                });
+                if cancelled {
+                    return Ok(());
+                }
+            }
+            let still_open = workspace.read_with(cx, |workspace, cx| {
+                workspace.items(cx).any(|item| {
+                    item.project_path(cx).as_ref() == Some(&project_path)
+                        || item.act_as::<Editor>(cx).is_some_and(|editor| {
+                            editor.project_path(cx).as_ref() == Some(&project_path)
+                        })
+                })
+            })?;
+            if still_open {
+                return Ok(());
+            }
+            panel.update(cx, |panel, cx| {
+                if panel
+                    .project
+                    .read(cx)
+                    .worktree_for_id(worktree_id, cx)
+                    .as_ref()
+                    == Some(&tree)
+                    && tree
+                        .read(cx)
+                        .root_entry()
+                        .is_some_and(|entry| entry.is_file())
+                {
+                    panel
+                        .project
+                        .update(cx, |project, cx| project.remove_worktree(worktree_id, cx));
+                }
+            })?;
+            Ok(())
+        })
     }
 
     fn remove_from_project(
@@ -4522,11 +4705,17 @@ impl ProjectPanel {
                             sort_order,
                         );
                         new_state.visible_entries.push(VisibleEntriesForWorktree {
+                            is_standalone: worktree_snapshot
+                                .root_entry()
+                                .is_some_and(|entry| entry.is_file()),
                             worktree_id,
                             entries: visible_worktree_entries,
                             index: OnceCell::new(),
                         })
                     }
+                    new_state
+                        .visible_entries
+                        .sort_by_key(|tree| tree.is_standalone);
                     if let Some((project_entry_id, worktree_id, _)) = max_width_item {
                         let mut visited_worktrees_length = 0;
                         let index = new_state
@@ -5712,6 +5901,15 @@ impl ProjectPanel {
 
         let depth = details.depth;
         let worktree_id = details.worktree_id;
+        let standalone_file = self
+            .project
+            .read(cx)
+            .worktree_for_id(worktree_id, cx)
+            .is_some_and(|tree| {
+                tree.read(cx)
+                    .root_entry()
+                    .is_some_and(|root| root.id == entry_id && root.is_file())
+            });
 
         let bg_color = if is_marked {
             item_colors.marked
@@ -6273,7 +6471,38 @@ impl ProjectPanel {
                             .flex_none()
                     })
                     .child(if show_editor {
-                        h_flex().h_6().w_full().child(self.filename_editor.clone())
+                        h_flex()
+                            .h_6()
+                            .w_full()
+                            .child(self.filename_editor.clone())
+                            .into_any_element()
+                    } else if standalone_file {
+                        let parent = self
+                            .project
+                            .read(cx)
+                            .worktree_for_id(worktree_id, cx)
+                            .and_then(|tree| {
+                                tree.read(cx)
+                                    .abs_path()
+                                    .parent()
+                                    .map(|parent| parent.to_string_lossy().into_owned())
+                            })
+                            .unwrap_or_default();
+                        v_flex()
+                            .min_w_0()
+                            .py_1()
+                            .child(
+                                Label::new(file_name)
+                                    .single_line()
+                                    .color(filename_text_color),
+                            )
+                            .child(
+                                Label::new(parent)
+                                    .single_line()
+                                    .size(LabelSize::XSmall)
+                                    .color(Color::Muted),
+                            )
+                            .into_any_element()
                     } else {
                         h_flex()
                             .h_6()
@@ -6307,6 +6536,25 @@ impl ProjectPanel {
                                         .into_any_element(),
                                 ),
                             })
+                            .into_any_element()
+                    })
+                    .when(standalone_file, |row| {
+                        row.end_slot(
+                            IconButton::new(
+                                ("close-standalone-file", entry_id.to_proto() as usize),
+                                IconName::Close,
+                            )
+                            .icon_size(IconSize::Small)
+                            .tooltip(Tooltip::text("关闭文件"))
+                            .on_click(cx.listener(
+                                move |panel, _, window, cx| {
+                                    cx.stop_propagation();
+                                    panel
+                                        .close_standalone_file(worktree_id, window, cx)
+                                        .detach_and_log_err(cx);
+                                },
+                            )),
+                        )
                     })
                     .on_secondary_mouse_down(cx.listener(
                         move |this, event: &MouseDownEvent, window, cx| {
@@ -6949,7 +7197,9 @@ fn item_width_estimate(depth: usize, item_text_chars: usize, is_symlink: bool) -
 
 impl Render for ProjectPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let has_worktree = !self.state.visible_entries.is_empty();
+        let untitled_items = self.render_untitled_items(cx);
+        let untitled_count = untitled_items.len();
+        let has_worktree = !self.state.visible_entries.is_empty() || untitled_count > 0;
         let project = self.project.read(cx);
         let panel_settings = ProjectPanelSettings::get_global(cx);
         let indent_size = panel_settings.indent_size;
@@ -6977,12 +7227,14 @@ impl Render for ProjectPanel {
         let is_local = project.is_local();
 
         if has_worktree {
-            let item_count = self
+            let total_count: usize = self
                 .state
                 .visible_entries
                 .iter()
-                .map(|worktree| worktree.entries.len())
+                .map(|tree| tree.entries.len())
                 .sum();
+            let item_count = self.project_entry_count();
+            let standalone_count = total_count - item_count;
 
             fn handle_drag_move<T: 'static>(
                 this: &mut ProjectPanel,
@@ -7139,6 +7391,15 @@ impl Render for ProjectPanel {
                 .track_focus(&self.focus_handle(cx))
                 .child(
                     v_flex()
+                        .when(item_count > 0, |view| {
+                            view.child(
+                                h_flex().h_7().px_3().child(
+                                    Label::new("项目文件")
+                                        .size(LabelSize::Small)
+                                        .color(Color::Muted),
+                                ),
+                            )
+                        })
                         .child(
                             uniform_list("entries", item_count, {
                                 cx.processor(|this, range: Range<usize>, window, cx| {
@@ -7367,6 +7628,46 @@ impl Render for ProjectPanel {
                             })
                             .track_scroll(&self.scroll_handle),
                         )
+                        .when(standalone_count > 0 || untitled_count > 0, |view| {
+                            view.child(
+                                h_flex().h_7().flex_none().px_3().child(
+                                    Label::new("独立文件")
+                                        .size(LabelSize::Small)
+                                        .color(Color::Muted),
+                                ),
+                            )
+                            .child(
+                                uniform_list(
+                                    "standalone-files",
+                                    standalone_count,
+                                    cx.processor(move |panel, range: Range<usize>, window, cx| {
+                                        let mut items = Vec::new();
+                                        let marked: Arc<[SelectedEntry]> =
+                                            Arc::from(panel.marked_entries.clone());
+                                        let offset = panel.project_entry_count();
+                                        panel.for_each_visible_entry(
+                                            range.start + offset..range.end + offset,
+                                            window,
+                                            cx,
+                                            &mut |id, details, window, cx| {
+                                                items.push(panel.render_entry(
+                                                    id,
+                                                    details,
+                                                    marked.clone(),
+                                                    window,
+                                                    cx,
+                                                ));
+                                            },
+                                        );
+                                        items
+                                    }),
+                                )
+                                .with_sizing_behavior(ListSizingBehavior::Infer)
+                                .when(item_count > 0, |list| list.max_h(px(280.)))
+                                .track_scroll(&self.standalone_scroll_handle),
+                            )
+                            .children(untitled_items)
+                        })
                         .child(
                             div()
                                 .id("project-panel-blank-area")
@@ -7707,11 +8008,7 @@ impl Panel for ProjectPanel {
         }
 
         let project = &self.project.read(cx);
-        project.visible_worktrees(cx).any(|tree| {
-            tree.read(cx)
-                .root_entry()
-                .is_some_and(|entry| entry.is_dir())
-        })
+        project.visible_worktrees(cx).next().is_some()
     }
 
     fn activation_priority(&self) -> u32 {

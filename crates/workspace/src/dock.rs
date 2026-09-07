@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsStore, TerminalDockPosition};
 use std::sync::Arc;
 use ui::{
-    ContextMenu, CountBadge, Divider, DividerColor, IconButton, Tooltip, prelude::*,
+    ContextMenu, CountBadge, Divider, DividerColor, IconButton, Toggleable, Tooltip, prelude::*,
     right_click_menu,
 };
 use util::ResultExt as _;
@@ -1352,16 +1352,58 @@ impl Render for Dock {
                     DockPosition::Bottom => this.border_t_1(),
                 })
                 .child(
-                    div()
+                    v_flex()
+                        .when(position == DockPosition::Left, |view| {
+                            view.child(
+                                h_flex()
+                                    .h_8()
+                                    .flex_none()
+                                    .px_1()
+                                    .gap_1()
+                                    .border_b_1()
+                                    .border_color(cx.theme().colors().border)
+                                    .children(
+                                        self.panel_entries
+                                            .iter()
+                                            .enumerate()
+                                            .filter(|(_, entry)| entry.panel.enabled(cx))
+                                            .map(|(index, entry)| {
+                                                let label = match entry.panel.persistent_name() {
+                                                    "Project Panel" => "文件",
+                                                    "Outline Panel" => "大纲",
+                                                    "Git Panel" => "Git",
+                                                    other => other,
+                                                };
+                                                Button::new(("sidebar-mode", index), label)
+                                                    .toggle_state(
+                                                        self.active_panel_index == Some(index),
+                                                    )
+                                                    .on_click(cx.listener(
+                                                        move |dock, _, window, cx| {
+                                                            dock.activate_panel(index, window, cx);
+                                                            if let Some(panel) = dock.active_panel()
+                                                            {
+                                                                panel
+                                                                    .activation_focus_handle(cx)
+                                                                    .focus(window, cx);
+                                                            }
+                                                        },
+                                                    ))
+                                            }),
+                                    ),
+                            )
+                        })
                         .map(|this| match self.position().axis() {
                             Axis::Horizontal => this.w_full().h_full(),
                             Axis::Vertical => this.h_full().w_full(),
                         })
                         .child(
-                            entry
-                                .panel
-                                .to_any()
-                                .cached(StyleRefinement::default().v_flex().size_full()),
+                            div().flex_1().min_h_0().w_full().child(
+                                entry
+                                    .panel
+                                    .to_any()
+                                    .cached(StyleRefinement::default().v_flex().size_full()),
+                            ),
                         ),
                 )
                 .when(self.resizable(cx), |this| {

@@ -77,6 +77,8 @@ pub struct MarkdownPreviewView {
 pub enum MarkdownPreviewMode {
     /// The preview will always show the contents of the provided editor.
     Default,
+    /// A snapshot embedded in the source editor; it must not retain that editor.
+    Snapshot,
     /// The preview will "follow" the currently active editor.
     Follow,
 }
@@ -86,12 +88,14 @@ impl MarkdownPreviewMode {
         match self {
             Self::Default => 0,
             Self::Follow => 1,
+            Self::Snapshot => 2,
         }
     }
 
     fn from_db(value: i64) -> Self {
         match value {
             1 => Self::Follow,
+            2 => Self::Snapshot,
             _ => Self::Default,
         }
     }
@@ -124,33 +128,12 @@ impl MarkdownPreviewView {
 
         workspace.register_action(move |workspace, _: &OpenPreviewToTheSide, window, cx| {
             if let Some(editor) = Self::resolve_active_item_as_markdown_editor(workspace, cx) {
-                let pane = workspace.active_pane().clone();
-                Self::open_preview_to_the_side_of_pane(workspace, editor, pane, window, cx);
+                Self::show_preview_mode(workspace, editor, window, cx);
             }
         });
-
         workspace.register_action(move |workspace, _: &OpenFollowingPreview, window, cx| {
             if let Some(editor) = Self::resolve_active_item_as_markdown_editor(workspace, cx) {
-                // Check if there's already a following preview
-                let existing_follow_view_idx = {
-                    let active_pane = workspace.active_pane().read(cx);
-                    active_pane
-                        .items_of_type::<MarkdownPreviewView>()
-                        .find(|view| view.read(cx).mode == MarkdownPreviewMode::Follow)
-                        .and_then(|view| active_pane.index_for_item(&view))
-                };
-
-                if let Some(existing_follow_view_idx) = existing_follow_view_idx {
-                    workspace.active_pane().update(cx, |pane, cx| {
-                        pane.activate_item(existing_follow_view_idx, true, true, window, cx);
-                    });
-                } else {
-                    let view = Self::create_following_markdown_view(workspace, editor, window, cx);
-                    workspace.active_pane().update(cx, |pane, cx| {
-                        pane.add_item(Box::new(view.clone()), true, true, None, window, cx)
-                    });
-                }
-                cx.notify();
+                Self::show_preview_mode(workspace, editor, window, cx);
             }
         });
     }
@@ -158,11 +141,32 @@ impl MarkdownPreviewView {
     pub fn open_preview_in_pane(
         workspace: &mut Workspace,
         editor: Entity<Editor>,
-        pane: Entity<Pane>,
+        _pane: Entity<Pane>,
         window: &mut Window,
         cx: &mut Context<Workspace>,
     ) {
-        Self::activate_or_add_preview(workspace, editor, pane, true, window, cx);
+        Self::show_preview_mode(workspace, editor, window, cx);
+    }
+
+    pub fn show_preview_mode(
+        workspace: &mut Workspace,
+        editor: Entity<Editor>,
+        window: &mut Window,
+        cx: &mut Context<Workspace>,
+    ) {
+        if let Some(view) = editor.read(cx).content_view::<Self>() {
+            view.focus_handle(cx).focus(window, cx);
+            return;
+        }
+        let view = Self::new(
+            MarkdownPreviewMode::Snapshot,
+            editor.clone(),
+            workspace.weak_handle(),
+            workspace.project().read(cx).languages().clone(),
+            window,
+            cx,
+        );
+        editor.update(cx, |editor, cx| editor.set_content_view(view, window, cx));
     }
 
     pub fn open_preview_to_the_side_of_pane(
@@ -264,6 +268,7 @@ impl MarkdownPreviewView {
         )
     }
 
+    #[cfg(test)]
     fn create_following_markdown_view(
         workspace: &mut Workspace,
         editor: Entity<Editor>,
@@ -332,9 +337,24 @@ impl MarkdownPreviewView {
                 markdown_parse_pending: false,
             };
 
-            this.set_editor(active_editor, window, cx);
+            if mode == MarkdownPreviewMode::Snapshot {
+                this.base_directory =
+                    Self::get_folder_for_active_editor(active_editor.read(cx), cx);
+                let contents = active_editor
+                    .read(cx)
+                    .buffer()
+                    .read(cx)
+                    .read(cx)
+                    .text()
+                    .into();
+                this.markdown
+                    .update(cx, |markdown, cx| markdown.reset(contents, cx));
+            } else {
+                this.set_editor(active_editor, window, cx);
+            }
 
             match mode {
+                MarkdownPreviewMode::Snapshot => {}
                 MarkdownPreviewMode::Follow => {
                     if let Some(workspace) = &workspace.upgrade() {
                         cx.observe_in(workspace, window, |this, workspace, window, cx| {
@@ -411,12 +431,17 @@ impl MarkdownPreviewView {
             };
             workspace
                 .update_in(cx, |workspace, window, cx| {
-                    let project = workspace.project().clone();
-                    let editor = cx.new(|cx| Editor::for_buffer(buffer, Some(project), window, cx));
-                    let preview = Self::create_markdown_view(workspace, editor, window, cx);
-                    workspace.active_pane().update(cx, |pane, cx| {
-                        pane.add_item(Box::new(preview), true, true, None, window, cx);
-                    });
+                    let editor = workspace.open_project_item::<Editor>(
+                        workspace.active_pane().clone(),
+                        buffer,
+                        true,
+                        true,
+                        true,
+                        false,
+                        window,
+                        cx,
+                    );
+                    Self::show_preview_mode(workspace, editor, window, cx);
                 })
                 .ok();
         })
@@ -907,6 +932,27 @@ impl MarkdownPreviewView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.mode == MarkdownPreviewMode::Snapshot {
+            let workspace = self.workspace.clone();
+            let preview_id = cx.entity_id();
+            window.defer(cx, move |window, cx| {
+                workspace
+                    .update(cx, |workspace, cx| {
+                        let editor = workspace.items_of_type::<Editor>(cx).find(|editor| {
+                            editor
+                                .read(cx)
+                                .content_view::<Self>()
+                                .is_some_and(|view| view.entity_id() == preview_id)
+                        });
+                        if let Some(editor) = editor {
+                            workspace.activate_item(&editor, true, true, window, cx);
+                            editor.update(cx, |editor, cx| editor.clear_content_view(window, cx));
+                        }
+                    })
+                    .log_err();
+            });
+            return;
+        }
         let Some(editor) = self
             .active_editor
             .as_ref()
@@ -3618,21 +3664,24 @@ mod tests {
         cx.run_until_parked();
 
         cx.update(|cx| {
-            let preview = first_pane
-                .read(cx)
-                .active_item()
-                .and_then(|item| item.downcast::<MarkdownPreviewView>())
-                .expect("the preview must open in the pane whose button was clicked");
-            let bound_editor = preview
-                .read(cx)
-                .active_editor
-                .as_ref()
-                .unwrap()
-                .editor
-                .clone();
             assert_eq!(
-                bound_editor, a_editor,
-                "the preview must be bound to the clicked pane's editor, not the focused editor"
+                first_pane
+                    .read(cx)
+                    .active_item()
+                    .and_then(|item| item.downcast::<Editor>()),
+                Some(a_editor.clone())
+            );
+            let preview = a_editor
+                .read(cx)
+                .content_view::<MarkdownPreviewView>()
+                .expect("preview mode stays inside the clicked editor");
+            assert_eq!(
+                preview.read(cx).markdown.read(cx).source().as_ref(),
+                "# A\n"
+            );
+            assert!(
+                preview.read(cx).active_editor.is_none(),
+                "an embedded preview must not retain its owner"
             );
             assert_eq!(
                 second_pane
@@ -3643,6 +3692,48 @@ mod tests {
                 "the focused pane's content must be unaffected"
             );
         });
+    }
+
+    #[gpui::test]
+    async fn test_seshat_markdown_modes_preserve_buffer_undo_and_dirty_state(
+        cx: &mut TestAppContext,
+    ) {
+        let (multi, editor) = open_markdown_file(cx, "note.md", "# Original\n").await;
+        multi
+            .update(cx, |multi, window, cx| {
+                editor.update(cx, |editor, cx| editor.set_text("# Unsaved\n", window, cx));
+                multi.workspace().update(cx, |workspace, cx| {
+                    MarkdownPreviewView::show_preview_mode(workspace, editor.clone(), window, cx)
+                });
+            })
+            .unwrap();
+        cx.run_until_parked();
+        let weak_preview = editor.read_with(cx, |editor, cx| {
+            assert!(workspace::Item::is_dirty(editor, cx));
+            let view = editor.content_view::<MarkdownPreviewView>().unwrap();
+            assert_eq!(
+                view.read(cx).markdown.read(cx).source().as_ref(),
+                "# Unsaved\n"
+            );
+            view.downgrade()
+        });
+        dispatch_close_and_return_to_editor(cx, &multi, &weak_preview.upgrade().unwrap());
+        cx.run_until_parked();
+        multi
+            .update(cx, |multi, window, cx| {
+                assert_eq!(multi.workspace().read(cx).items(cx).count(), 1);
+                editor.update(cx, |editor, cx| {
+                    assert!(!editor.has_content_view());
+                    editor.undo(&editor::actions::Undo, window, cx);
+                });
+            })
+            .unwrap();
+        cx.run_until_parked();
+        editor.read_with(cx, |editor, cx| {
+            assert_eq!(editor.buffer().read(cx).read(cx).text(), "# Original\n");
+            assert!(!editor.has_content_view());
+        });
+        assert!(weak_preview.upgrade().is_none());
     }
 
     #[gpui::test]

@@ -2,7 +2,7 @@ mod preview;
 
 use editor::{Editor, EditorSettings};
 use gpui::{Context, Entity, EventEmitter, Render, WeakEntity, Window};
-use search::{BufferSearchBar, buffer_search};
+use search::BufferSearchBar;
 use settings::{Settings, SettingsStore};
 use ui::{ButtonStyle, IconButton, IconSize, Tooltip, prelude::*};
 use workspace::{
@@ -63,12 +63,10 @@ impl Render for QuickActionBar {
                     .style(ButtonStyle::Subtle)
                     .toggle_state(!search_bar.read(cx).is_dismissed())
                     .tooltip(|_, cx| {
-                        Tooltip::for_action("Find in File", &buffer_search::Deploy::find(), cx)
+                        Tooltip::for_action("搜索当前文件", &search::seshat_search::CurrentFile, cx)
                     })
                     .on_click(move |_, window, cx| {
-                        search_bar.update(cx, |search_bar, cx| {
-                            search_bar.toggle(&buffer_search::Deploy::find(), window, cx)
-                        });
+                        window.dispatch_action(Box::new(search::seshat_search::CurrentFile), cx);
                     }),
             )
     }

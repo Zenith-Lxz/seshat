@@ -49,7 +49,7 @@ impl Render for SearchButton {
                     }
                 })
                 .on_click(cx.listener(|_this, _, window, cx| {
-                    window.dispatch_action(Box::new(workspace::DeploySearch::default()), cx);
+                    window.dispatch_action(Box::new(crate::seshat_search::AllFiles), cx);
                 })),
         )
     }
