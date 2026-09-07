@@ -193,7 +193,7 @@ impl Render for SecurityModal {
                             )
                             .child(
                                 Label::new(
-                                    "Review .zed/settings.json for any extensions or commands configured by this project.",
+                                    "Review .zed/settings.json before applying this folder's settings.",
                                 )
                                 .color(Color::Muted),
                             ),
@@ -201,9 +201,7 @@ impl Render for SecurityModal {
                     .child(
                         v_flex()
                             .child(Label::new("Restricted Mode prevents:").color(Color::Muted))
-                            .child(ListBulletItem::new("Project settings from being applied"))
-                            .child(ListBulletItem::new("Language servers from running"))
-                            .child(ListBulletItem::new("MCP Server integrations from installing")),
+                            .child(ListBulletItem::new("Project settings from being applied")),
                     )
                     .map(|this| {
                         let Some(trust_label) = trust_label else {

@@ -2034,6 +2034,11 @@ const REMOVED_EDITOR_ACTIONS: &[&str] = &[
     "editor::ToggleInlineCompletions",
     "editor::ToggleEditPrediction",
     "workspace::ToggleWorktreeSecurity",
+    "workspace::NewTerminal",
+    "workspace::NewCenterTerminal",
+    "workspace::OpenTerminal",
+    "workspace::OpenInTerminal",
+    "zed::OpenWorktreeSetupTasks",
 ];
 
 fn is_removed_action(name: &str) -> bool {

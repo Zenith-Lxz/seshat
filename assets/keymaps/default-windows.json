@@ -405,7 +405,6 @@
       "shift-alt-b": "branches::OpenRecent",
       "shift-alt-w": "git::Worktree",
       "shift-alt-enter": "toast::RunAction",
-      "ctrl-shift-`": "workspace::NewTerminal",
       "ctrl-s": "workspace::Save",
       "ctrl-k ctrl-shift-s": "workspace::SaveWithoutFormat",
       "ctrl-shift-s": "workspace::SaveAs",
@@ -1030,7 +1029,6 @@
     "bindings": {
       "ctrl-shift-backspace": "worktree_picker::DeleteWorktree",
       "ctrl-alt-shift-backspace": "worktree_picker::ForceDeleteWorktree",
-      "ctrl-shift-,": "zed::OpenWorktreeSetupTasks",
     },
   },
 
